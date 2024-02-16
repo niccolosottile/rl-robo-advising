@@ -1,7 +1,8 @@
 import cvxpy as cp
 
-# IMPORTANT
-# To keep vectorised process, the model currently assumes that asset-level expected returns c are constant among timesteps.
+# Might need to add constraint to ensure that num_assets dimension values in r matrix are equal.
+
+# Try out different solvers for problem.
 
 def solve_iporisk(portfolio_allocations, constituents_returns, Q, A, b, c, rt, M=10**3, eta_t=1):
     """
@@ -24,11 +25,19 @@ def solve_iporisk(portfolio_allocations, constituents_returns, Q, A, b, c, rt, M
     n_time_steps = portfolio_allocations.shape[0]
 
     # Variables
-    r = cp.Variable(n_time_steps)
+    r = cp.Variable((n_assets, n_time_steps))
     x = cp.Variable((n_assets, n_time_steps))
-    u = cp.Variable((n_assets, n_time_steps))
-    z = cp.Variable((n_assets, n_time_steps), boolean=True)
+    u = cp.Variable((1, n_time_steps))
+    z = cp.Variable((1, n_time_steps), boolean=True)
 
+    # A is (1, n_assets), x is (n_assets, n_time_steps), hence, (1, n_time_steps) comparison with b which is broadcasted works.
+    # u and z need to have the same dimensions for comparison.
+    # z needs to be (1, n_time_steps) for comparison with A @ x - b which is (1, n_time_steps).
+    # A transposed is (n_assets, 1) with u which needs to be (1, n_time_steps) results in (n_assets, n_time_steps).
+    # Q is (n_assets, n_assets) with x which is (n_assets, n_time_steps) results in (n_assets, n_time_steps)
+    # r is (n_assets, n_time_steps) and c is (n_assets, n_time_steps) should result in (n_assets, n_time_steps) by element-wise multiplication,
+    # each r value at timestep t is multipled with each asset level c value.
+ 
     # Objective
     objective = cp.Minimize(0.5 * cp.sum_squares(r - rt) + eta_t * cp.sum_squares(portfolio_allocations.values.T - x))
 
@@ -37,14 +46,14 @@ def solve_iporisk(portfolio_allocations, constituents_returns, Q, A, b, c, rt, M
         A @ x >= b,
         u <= M * z,
         A @ x - b <= M * (1 - z),
-        Q.T @ x - cp.multiply(r, c) - A.T @ u == 0,
+        #Q @ x - cp.multiply(r, c) - A.T @ u == 0,
         x >= 0,
         u >= 0,
     ]
 
     # Solve
     problem = cp.Problem(objective, constraints)
-    problem.solve()
+    problem.solve(solver=cp.MOSEK)
 
     return r.value
 
@@ -71,11 +80,11 @@ def solve_iporeturn(portfolio_allocations, constituents_returns, Q, A, b, r, ct,
     # Variables
     c = cp.Variable((n_time_steps, n_assets))
     x = cp.Variable((n_assets, n_time_steps))
-    u = cp.Variable((n_assets, n_time_steps))
-    z = cp.Variable((n_assets, n_time_steps), boolean=True)
+    u = cp.Variable((n_time_steps, n_assets))
+    z = cp.Variable((n_time_steps, n_assets), boolean=True)
 
     # Objective
-    objective = cp.Minimize(0.5 * cp.sum_squares(c - ct) + eta_t * cp.sum_squares(portfolio_allocations.values.T - x))
+    objective = cp.Minimize(0.5 * cp.sum_squares(c - ct) + eta_t * cp.sum_squares(portfolio_allocations.values - x))
 
     # Constraints
     constraints = [

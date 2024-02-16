@@ -3,9 +3,6 @@ import pandas as pd
 from data_preprocessing import load_and_prepare_data
 from optimization_problems import solve_iporisk, solve_iporeturn
 
-##### IMPORTANT 
-##### For simplicity the model currently assumes that asset-level expected returns c are constant among timesteps.
-
 # File paths
 acwi_file = 'Datasets/ACWI.csv'
 aggu_file = 'Datasets/AGGU.L.csv'
@@ -20,14 +17,15 @@ constituents_returns.columns = ['ACWI', 'AGGU']
 # Initialization
 n_assets = constituents_returns.shape[1]
 n_time_steps = len(acwi_returns)  # Assuming constituents equally indexed by time
-initial_r = np.ones(n_time_steps) * 0.05  # Initial guess for r (uniform accross timesteps)
-#initial_c = np.ones(n_assets) * 0.02 # Initial guess for c (uniform accross assets)
-initial_c = np.full((n_time_steps, n_assets), 0.02)  # Initial guess for c (uniform accross timesteps and assets)
+initial_r = np.ones((n_assets, n_time_steps)) * 0.05  # Initial guess for r (uniform accross timesteps), broadcasting to achive element-wise multiplication with c matrix
+initial_c = np.full((n_assets, n_time_steps), 0.02)  # Initial guess for c (uniform accross timesteps and assets)
 tolerance = 1e-6  # Convergence tolerance
 
 Q = np.cov(constituents_returns.T) # Measures covariance between assets (reflects combined risk of returns)
 A = np.ones((1, n_assets))  # Linear constraints since portfolio weights need to sum to 1
 b = np.array([1])  # Bounds for linear constraints
+
+print(A)
 
 # Hyperparameters
 M_risk = 10**6
@@ -53,6 +51,8 @@ for iteration in range(10):  # Max iterations
     # Solve for r given c
     learned_r = solve_iporisk(portfolio_allocations, constituents_returns, Q, A, b, initial_c, initial_r, M_risk, eta_t_risk)
     
+    print("DONE")
+
     # Solve for c given r
     learned_c = solve_iporeturn(portfolio_allocations, constituents_returns, Q, A, b, learned_r, initial_c, M_return, eta_t_return)
     
