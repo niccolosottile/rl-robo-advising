@@ -25,8 +25,6 @@ Q = np.cov(constituents_returns.T) # Measures covariance between assets (reflec
 A = np.ones((1, n_assets))  # Linear constraints since portfolio weights need to sum to 1
 b = np.array([1])  # Bounds for linear constraints
 
-print(A)
-
 # Hyperparameters
 M_risk = 10**6
 eta_t_risk = 0.01
@@ -50,8 +48,6 @@ for iteration in range(10):  # Max iterations
 
     # Solve for r given c
     learned_r = solve_iporisk(portfolio_allocations, constituents_returns, Q, A, b, initial_c, initial_r, M_risk, eta_t_risk)
-    
-    print("DONE")
 
     # Solve for c given r
     learned_c = solve_iporeturn(portfolio_allocations, constituents_returns, Q, A, b, learned_r, initial_c, M_return, eta_t_return)
