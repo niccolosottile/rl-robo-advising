@@ -21,7 +21,20 @@ initial_r = np.ones((n_assets, n_time_steps)) * 0.05  # Initial guess for r (uni
 initial_c = np.full((n_assets, n_time_steps), 0.02)  # Initial guess for c (uniform accross timesteps and assets)
 tolerance = 1e-6  # Convergence tolerance
 
-Q = np.cov(constituents_returns.T) # Measures covariance between assets (reflects combined risk of returns)
+time_varying_Q = [] # Initialize containers for Q_t for each t
+L = 100 # Size of look-back window
+
+# Loop through each time step t
+for t in range(n_time_steps):
+    # Adjust l for your look-back window if necessary
+    l = max(0, t - L)
+    current_returns = constituents_returns.iloc[l:t+1]
+    
+    # Calculate Q_t (covariance matrix at t)
+    Q_t = np.cov(current_returns.T, bias=True)
+    time_varying_Q.append(Q_t)
+
+Q = time_varying_Q # Measures covariance between assets (reflects combined risk of returns)
 A = np.ones((1, n_assets))  # Linear constraints since portfolio weights need to sum to 1
 b = np.array([1])  # Bounds for linear constraints
 

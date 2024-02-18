@@ -33,7 +33,7 @@ def solve_iporisk(portfolio_allocations, constituents_returns, Q, A, b, c, rt, M
     # u and z need to have the same dimensions for comparison.
     # z needs to be (1, n_time_steps) for comparison with A @ x - b which is (1, n_time_steps).
     # A transposed is (n_assets, 1) with u which needs to be (1, n_time_steps) results in (n_assets, n_time_steps).
-    # Q is (n_assets, n_assets) with x which is (n_assets, n_time_steps) results in (n_assets, n_time_steps).
+    # Q is (n_timesteps, (n_assets, n_assets)) with x which is (n_assets, n_time_steps) results in (n_assets, n_time_steps).
     # r is (n_assets, n_time_steps) and c is (n_assets, n_time_steps) should result in (n_assets, n_time_steps) by element-wise multiplication,
     # each r value at timestep t is multipled with each asset level c value.
  
@@ -45,7 +45,7 @@ def solve_iporisk(portfolio_allocations, constituents_returns, Q, A, b, c, rt, M
         A @ x >= b,
         u <= M * z,
         A @ x - b <= M * (1 - z),
-        #Q @ x - cp.multiply(r, c) - A.T @ u == 0,
+        Q @ x - cp.multiply(r, c) - A.T @ u == 0,
         x >= 0,
         u >= 0,
     ]
