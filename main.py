@@ -19,10 +19,10 @@ A = np.ones((1, n_assets))  # Linear constraints since portfolio weights need to
 b = np.array([1])  # Bounds for linear constraints
 
 # Hyperparameters (different for each of IPO-Risk and IPO-Return)
-M_risk = 10**6
-eta_t_risk = 0.01
 M_return = 10**6
-eta_t_return = 0.01
+lambda_return = 0.01
+M_risk = 10**6
+lambda_risk = 0.01
 
 # Prepare asset allocations
 # List of asset allocations for n_assets
@@ -33,32 +33,20 @@ if len(asset_allocations) != n_assets:
 # Creating portfolio allocations DataFrame with different allocations per asset, constant across time_steps
 portfolio_allocations = pd.DataFrame(np.tile(asset_allocations, (n_time_steps, 1)))
 
-# Iterative process of alternatively learning r and c
-tolerance = 1e-6  # Convergence tolerance 
+# Iterative process of alternatively learning r and c in online fashion.
+for t in range(1, n_time_steps):
+    current_allocations = portfolio_allocations.values[t]
+    c_t = initial_c[t-1]
+    r_t = initial_r[t-1]
+    Q_t = np.cov(constituents_returns.values[:t+1].T) # Measures covariance between assets (used to reflect combined risk of returns)
+    eta_t_return = lambda_return / (t ** 0.5)
+    eta_t_risk = lambda_risk / (t ** 0.5)
 
-for iteration in range(100):  # Max iterations
-    prev_c = initial_c.copy()
-    prev_r = initial_r.copy()
+    # Solve for c given r
+    initial_c[t] = solve_iporeturn(current_allocations, constituents_returns, Q_t, A, b, r_t, c_t, M_return, eta_t_return)
 
-    for t in range(1, n_time_steps):
-        current_allocations = portfolio_allocations.values[t]
-        c_t = initial_c[t]
-        r_t = initial_r[t]
-        Q_t = np.cov(constituents_returns.values[:t+1].T) # Measures covariance between assets (used to reflect combined risk of returns)
+    # Solve for r given c
+    initial_r[t] = solve_iporisk(current_allocations, constituents_returns, Q_t, A, b, initial_c[t], r_t, M_risk, eta_t_risk)
 
-        # Solve for c given r
-        initial_c[t] = solve_iporeturn(current_allocations, constituents_returns, Q_t, A, b, r_t, c_t, M_return, eta_t_return)
-
-        # Solve for r given c
-        initial_r[t] = solve_iporisk(current_allocations, constituents_returns, Q_t, A, b, initial_c[t], r_t, M_risk, eta_t_risk)
-
-    print("Finished pass {}:\n".format(iteration + 1))
-    print(initial_c[-1])
-    print(initial_r[-1])
-
-    # Check for convergence
-    delta_c = np.linalg.norm(initial_c - prev_c)
-    delta_r = np.linalg.norm(initial_r - prev_r)
-    if delta_c < tolerance and delta_r < tolerance:
-        print(f"Converged after {iteration+1} iterations.")
-        break
+print(initial_c[-1])
+print(initial_r[-1])
