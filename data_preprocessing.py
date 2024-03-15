@@ -10,8 +10,11 @@ def load_and_prepare_data(acwi_file, aggu_file):
     acwi_returns = np.log(acwi['Adj Close'] / acwi['Adj Close'].shift(1))
     aggu_returns = np.log(aggu['Adj Close'] / aggu['Adj Close'].shift(1))
 
-    # Drop NaN values
-    acwi_returns.dropna(inplace=True)
-    aggu_returns.dropna(inplace=True)
+    # Combine acwi_returns and aggu_returns into a single DataFrame
+    combined_returns = pd.concat([acwi_returns, aggu_returns], axis=1)
+    combined_returns.columns = ['ACWI', 'AGGU']
 
-    return acwi_returns, aggu_returns
+    # Drop rows with any NaN values in the combined DataFrame
+    combined_returns.dropna(inplace=True)
+
+    return combined_returns
