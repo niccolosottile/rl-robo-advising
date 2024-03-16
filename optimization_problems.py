@@ -1,6 +1,6 @@
 import cvxpy as cp
 
-def solve_iporeturn(portfolio_allocations, constituents_returns, Q, A, b, r, ct, M=10**3, eta_t=1):
+def solve_iporeturn(portfolio_allocations, Q, A, b, r, c_t, M=10**3, eta_t=1):
     """
     Solves the IPO-Return optimization problem to learn time-varying expected returns c.
 
@@ -17,7 +17,7 @@ def solve_iporeturn(portfolio_allocations, constituents_returns, Q, A, b, r, ct,
     Returns:
     - c: Learned asset-level expected returns.
     """
-    n_assets = constituents_returns.shape[1]
+    n_assets = c_t.shape
 
     # Variables
     c = cp.Variable(n_assets)
@@ -26,11 +26,11 @@ def solve_iporeturn(portfolio_allocations, constituents_returns, Q, A, b, r, ct,
     z = cp.Variable(1, boolean=True)
 
     # Objective
-    objective = cp.Minimize(0.5 * cp.sum_squares(c - ct) + eta_t * cp.sum_squares(portfolio_allocations.T - x))
+    objective = cp.Minimize(0.5 * cp.sum_squares(c - c_t) + eta_t * cp.sum_squares(portfolio_allocations.T - x))
 
     # Constraints
     constraints = [
-        A @ x >= b,
+        A @ x == b,
         u <= M * z,
         A @ x - b <= M * (1 - z),
         Q @ x - r * c - A.T @ u == 0,
@@ -42,7 +42,7 @@ def solve_iporeturn(portfolio_allocations, constituents_returns, Q, A, b, r, ct,
 
     return c.value
 
-def solve_iporisk(portfolio_allocations, constituents_returns, Q, A, b, c, rt, M=10**3, eta_t=1):
+def solve_iporisk(portfolio_allocations, Q, A, b, c, r_t, M=10**3, eta_t=1):
     """
     Solves the IPO-Risk optimization problem to learn time-varying risk tolerance r.
 
@@ -59,7 +59,7 @@ def solve_iporisk(portfolio_allocations, constituents_returns, Q, A, b, c, rt, M
     Returns:
     - r: Learned risk tolerance.
     """
-    n_assets = constituents_returns.shape[1]
+    n_assets = c.shape[0]
 
     # Variables
     r = cp.Variable()
@@ -68,11 +68,11 @@ def solve_iporisk(portfolio_allocations, constituents_returns, Q, A, b, c, rt, M
     z = cp.Variable(1, boolean=True)
  
     # Objective
-    objective = cp.Minimize(0.5 * cp.sum_squares(r - rt) + eta_t * cp.sum_squares(portfolio_allocations.T - x))
+    objective = cp.Minimize(0.5 * cp.sum_squares(r - r_t) + eta_t * cp.sum_squares(portfolio_allocations.T - x))
 
     # Constraints
     constraints = [
-        A @ x >= b,
+        A @ x == b,
         u <= M * z,
         A @ x - b <= M * (1 - z),
         Q @ x - r * c - A.T @ u == 0,

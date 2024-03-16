@@ -13,16 +13,12 @@ constituents_returns = load_and_prepare_data(acwi_file, aggu_file)
 # Initialization
 n_assets = constituents_returns.shape[1]
 n_time_steps = constituents_returns.values.shape[0] # Assuming constituents equally indexed by time
-initial_c = np.ones((n_time_steps, n_assets))  # Initial guess for c (uniform accross timesteps and assets)
-initial_r = np.ones(n_time_steps)  # Initial guess for r (uniform accross timesteps)
 A = np.ones((1, n_assets))  # Linear constraints since portfolio weights need to sum to 1
 b = np.array([1])  # Bounds for linear constraints
 
-# Hyperparameters (different for each of IPO-Risk and IPO-Return)
-M_return = 10**6
-lambda_return = 0.01
-M_risk = 10**6
-lambda_risk = 0.01
+# Hyperparameters (later should be different for each of IPO-Risk and IPO-Return)
+M = 100
+learning_rate = 100
 
 # Prepare asset allocations
 # List of asset allocations for n_assets
@@ -36,17 +32,22 @@ portfolio_allocations = pd.DataFrame(np.tile(asset_allocations, (n_time_steps, 1
 # Iterative process of alternatively learning r and c in online fashion.
 for t in range(1, n_time_steps):
     current_allocations = portfolio_allocations.values[t]
-    c_t = initial_c[t-1]
-    r_t = initial_r[t-1]
+    r_t = 1.0 # Initial guess for r
+    
+    # Calculate return mean up to current time t for each asset
+    c_t = []
+    for i in range(n_assets):
+        c_i_t = constituents_returns.values[:t+1, i].mean()
+        c_t.append(c_i_t)
+
     Q_t = np.cov(constituents_returns.values[:t+1].T) # Measures covariance between assets (used to reflect combined risk of returns)
-    eta_t_return = lambda_return / (t ** 0.5)
-    eta_t_risk = lambda_risk / (t ** 0.5)
+    eta_t = learning_rate / (t ** 0.5)
 
     # Solve for c given r
-    initial_c[t] = solve_iporeturn(current_allocations, constituents_returns, Q_t, A, b, r_t, c_t, M_return, eta_t_return)
+    c_t = solve_iporeturn(current_allocations, constituents_returns, Q_t, A, b, r_t, c_t, M, eta_t)
 
     # Solve for r given c
-    initial_r[t] = solve_iporisk(current_allocations, constituents_returns, Q_t, A, b, initial_c[t], r_t, M_risk, eta_t_risk)
+    r_t = solve_iporisk(current_allocations, constituents_returns, Q_t, A, b, c_t, r_t, M, eta_t)
 
-print(initial_c[-1])
-print(initial_r[-1])
+print(c_t)
+print(r_t)
