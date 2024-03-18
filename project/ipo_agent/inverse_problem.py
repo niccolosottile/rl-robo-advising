@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from optimization_problems import solve_iporeturn,  solve_iporisk
+from project.ipo_agent.optimization_problems import solve_iporeturn,  solve_iporisk
 
 def inverse_problem(constituents_returns, portfolio_allocations, r_g, M, learning_rate):
     """Inverse problem that estimates risk preferences based on generated portfolios."""

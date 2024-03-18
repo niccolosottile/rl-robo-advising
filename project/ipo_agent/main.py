@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-from data_preprocessing import load_and_prepare_data
-from optimization_problems import solve_iporeturn,  solve_iporisk
+from project.utils.data_loader import load_and_prepare_data
+from project.ipo_agent.optimization_problems import solve_iporeturn,  solve_iporisk
 
 # Preparing constituents returns
 # File paths

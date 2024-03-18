@@ -5,13 +5,13 @@
 import numpy as np
 import pandas as pd
 from itertools import product
-from data_preprocessing import load_and_prepare_data
-from inverse_problem import inverse_problem
-from forward_problem import forward_problem
+from project.utils.data_loader import load_and_prepare_data
+from project.ipo_agent.inverse_problem import inverse_problem
+from project.ipo_agent.forward_problem import forward_problem
 
 # File paths
-acwi_file = 'Datasets/ACWI.csv'
-aggu_file = 'Datasets/AGGU.L.csv'
+acwi_file = 'project/data/ACWI.csv'
+aggu_file = 'project/data/AGGU.L.csv'
 
 # Extracting constituents returns 253-day rolling periods
 constituents_returns = load_and_prepare_data(acwi_file, aggu_file)
@@ -27,8 +27,8 @@ lowest_error = np.inf
 # Loop through all combinations of hyperparameters
 for M, learning_rate in product(M_values, learning_rates):
     # Assume a function to sample known risk aversions for the forward problem
-    known_risk_aversions = np.linspace(0.1, 3, 3) 
-    guessed_risk_aversions = np.linspace(0.2, 6, 3) # Need to be different from actual values
+    known_risk_aversions = np.linspace(0.1, 1, 3) 
+    guessed_risk_aversions = np.linspace(0.3, 3, 3) # Need to be different from actual values
     
     errors = []
     for r_s in known_risk_aversions:
