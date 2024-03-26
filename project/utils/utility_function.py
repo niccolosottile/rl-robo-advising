@@ -3,6 +3,8 @@ import numpy as np
 def mean_variance_utility(constituents_returns, portfolio_weights, r):
     n_assets = constituents_returns.shape[1]
 
+    r = r if r is not None else 15
+
     # Calculate expected return for each asset
     c_t = []
     for i in range(n_assets):

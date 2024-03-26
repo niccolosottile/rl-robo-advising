@@ -9,11 +9,11 @@ def inverse_problem(constituents_returns, portfolio_allocations, r_g, M, learnin
     n_time_steps = constituents_returns.values.shape[0] # Assuming constituents equally indexed by time
     A = np.ones((1, n_assets))  # Linear constraints since portfolio weights need to sum to 1
     b = np.array([1]) # Bounds for linear constraints
-    r_t = r_g # Initial guess for r
-    offset = 0 if not only_last else n_time_steps - 1 # Don't process all timesteps
+    r_t = r_g if r_g is not None else 15 # Initial guess for r
+    offset = 0 if not only_last else n_time_steps - 2 # Don't process all timesteps
 
     # Iterative process of alternatively learning r and c in online fashion.
-    for t in range(1 + offset, n_time_steps - 1):
+    for t in range(1 + offset, n_time_steps):
         current_allocations = portfolio_allocations[t] if not only_last else portfolio_allocations
         
         # Calculate return mean up to current time t for each asset

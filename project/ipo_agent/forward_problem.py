@@ -8,7 +8,7 @@ def forward_problem(constituents_returns, r, only_last=False):
     A = np.ones((1, n_assets))  # Linear constraints since portfolio weights need to sum to 1
     b = np.array([1]) # Bounds for linear constraints
     portfolio_allocations = []
-    offset = 0 if not only_last else n_time_steps - 1 # Don't process all timesteps
+    offset = 0 if not only_last else n_time_steps - 2 # Don't process all timesteps
 
     # Generate optimal allocation for each timestep
     for t in range(1 + offset, n_time_steps):

@@ -22,7 +22,7 @@ class PortfolioEnv(gym.Env):
         self.use_portfolio = use_portfolio # Uses portfolio as part of state representation
         self.n_assets = self.constituents_returns.shape[1]
         self.n_timesteps = self.constituents_returns.shape[0]
-        self.current_timestep = 0
+        self.current_timestep = 1
         
         # Define action space as a given portfolio allocation plus option to solicit investor
         self.action_space = gym.spaces.Box(low=0, high=1, shape=(self.n_assets + 1,), dtype=np.float32)
@@ -42,9 +42,9 @@ class PortfolioEnv(gym.Env):
         self.current_portfolio = np.full((self.n_assets,), 1/self.n_assets)  # Start with equally weighted portfolio
         self.current_market_condition = self.get_market_condition()
 
-        # Investor behaviour parameters, set of phi values is {0.1 to 3}
-        self.phi = 1.5 # Current estimate of true risk profile
-        self.r = 1.5 # Bounds size of investor mistakes about true risk profile
+        # Investor behaviour parameters, set of phi values is {1 to 30}
+        self.phi = 15 # Current estimate of true risk profile
+        self.r = 7 # Bounds size of investor mistakes about true risk profile
         self.K = 0.0008 # Opportunity cost of soliciting investor choice
         self.current_phi = None
         self.n_solicited = 0 # Number of times investor is solicited
@@ -83,7 +83,7 @@ class PortfolioEnv(gym.Env):
     def simulate_investor_behaviour(self):
         self.n_solicited += 1 # Increase solicited count
         sampled_phi = np.random.normal(self.phi, self.r) # Sample above mean phi with std of r
-        sampled_phi = max(min(sampled_phi, 3), 0.1) # Clip at boundaries of valid phi value
+        sampled_phi = max(min(sampled_phi, 30), 1) # Clip at boundaries of valid phi value
             
         return sampled_phi
 
@@ -99,7 +99,7 @@ class PortfolioEnv(gym.Env):
                 self.current_phi = self.current_phi + 1/self.n_solicited * (inferred_phi - self.current_phi)
 
         # Calculate reward using mean-variance utility function and current estimate of phi
-        reward = mean_variance_utility(self.constituents_return.iloc[:self.current_timestep+1, :], self.current_portfolio, self.current_phi)
+        reward = mean_variance_utility(self.constituents_returns.iloc[:self.current_timestep+1, :], self.current_portfolio, self.current_phi)
 
         if ask_investor:
             # Reduce by cost of soliciting
@@ -128,13 +128,13 @@ class PortfolioEnv(gym.Env):
         self.current_market_condition = self.get_market_condition() # Retrieve new market condition
         next_state = self.get_state() # Retrieve next state
         reward = self.calculate_reward(ask_investor) # Calculate reward
-        done = self.current_timestep >= self.n_timesteps # Check if episode has ended
+        done = self.current_timestep >= self.n_timesteps - 1 # Check if episode has ended
         info = {}
 
         return next_state, reward, done, info
 
     def reset(self):
-        self.current_timestep = 0 # Reset timestep
+        self.current_timestep = 1200 # Reset timestep
         self.current_portfolio = np.full((self.n_assets,), 1/self.n_assets) # Reset to equally weighted portfolio
         self.current_market_condition = self.get_market_condition()
 
