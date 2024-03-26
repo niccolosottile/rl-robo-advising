@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from project.ipo_agent.optimization_problems import solve_iporeturn,  solve_iporisk
 
-def inverse_problem(constituents_returns, portfolio_allocations, r_g, M, learning_rate):
+def inverse_problem(constituents_returns, portfolio_allocations, r_g, M, learning_rate, only_last=False):
     """Inverse problem that estimates risk preferences based on generated portfolios."""
     # Initialization
     n_assets = constituents_returns.shape[1]
@@ -10,10 +10,11 @@ def inverse_problem(constituents_returns, portfolio_allocations, r_g, M, learnin
     A = np.ones((1, n_assets))  # Linear constraints since portfolio weights need to sum to 1
     b = np.array([1]) # Bounds for linear constraints
     r_t = r_g # Initial guess for r
+    offset = 0 if not only_last else n_time_steps - 1 # Don't process all timesteps
 
     # Iterative process of alternatively learning r and c in online fashion.
-    for t in range(1, n_time_steps - 1):
-        current_allocations = portfolio_allocations[t]
+    for t in range(1 + offset, n_time_steps - 1):
+        current_allocations = portfolio_allocations[t] if not only_last else portfolio_allocations
         
         # Calculate return mean up to current time t for each asset
         c_t = []

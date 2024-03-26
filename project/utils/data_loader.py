@@ -1,6 +1,24 @@
 import pandas as pd
 import numpy as np
 
+def load_and_prepare_prices(acwi_file, aggu_file):
+    # Load data
+    acwi = pd.read_csv(acwi_file, index_col='Date', parse_dates=True)
+    aggu = pd.read_csv(aggu_file, index_col='Date', parse_dates=True)
+
+    # Ensure the data is sorted by date
+    acwi.sort_index(inplace=True)
+    aggu.sort_index(inplace=True)
+
+    # Combine acwi_returns and aggu_returns into a single DataFrame
+    combined_prices = pd.concat([acwi['Open'], aggu['Open']], axis=1)
+    combined_prices.columns = ['ACWI', 'AGGU']
+
+    # Drop rows with any NaN values in the combined DataFrame
+    combined_prices.dropna(inplace=True)
+
+    return combined_prices
+
 def load_and_prepare_returns(acwi_file, aggu_file):
     # Load data
     acwi = pd.read_csv(acwi_file, index_col='Date', parse_dates=True)
