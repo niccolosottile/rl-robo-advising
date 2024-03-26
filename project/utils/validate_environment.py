@@ -11,7 +11,7 @@ def validate_environment():
         constituents_returns=load_and_prepare_returns('project/data/ACWI.csv', 'project/data/AGGU.L.csv'), 
         consitutents_volatility=load_and_prepare_volatility('project/data/ACWI.csv', 'project/data/AGGU.L.csv'), 
         lookback_window_size=100, 
-        use_portfolio=False
+        use_portfolio=True
     )
 
     # Reset the environment to start
@@ -26,12 +26,17 @@ def validate_environment():
         
         # Random action as per the environment's action space
         action = env.action_space.sample()
+
+        portfolio_choice = action[:-1] # Portfolio allocation decision
+        ask_investor = action[-1] > 0.5 # Decision to ask the investor
+
+        normalized_portfolio_choice = portfolio_choice / np.sum(portfolio_choice)
         
         # Perform a step in the environment
         new_observation, reward, done, info = env.step(action)
         
         # Print the results to inspect
-        print(f"Action Taken: {action}")
+        print(f"Action Taken (formatted): {normalized_portfolio_choice.tolist() if not ask_investor else False}")
         print(f"New Observation: {new_observation}")
         print(f"Reward: {reward}")
         print(f"Done: {done}")

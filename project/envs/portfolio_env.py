@@ -6,7 +6,7 @@ from project.utils.utility_function import mean_variance_utility
 
 # Notes:
 # Need to modify returns so that they are daily (if using daily timesteps)
-# Market condition not used at the moment (returns should depend on market condition)
+# Market condition not used at the moment (no reason for market condition as it was used to estimate returns?)
 # Consider changing state to market prices or portfolio value that's what market condition is for
 class PortfolioEnv(gym.Env):
     metadata = {'render_modes': ['human']}
@@ -44,7 +44,7 @@ class PortfolioEnv(gym.Env):
 
         # Investor behaviour parameters, set of phi values is {1 to 30}
         self.phi = 15 # Current estimate of true risk profile
-        self.r = 7 # Bounds size of investor mistakes about true risk profile
+        self.r = 5 # Bounds size of investor mistakes about true risk profile
         self.K = 0.0008 # Opportunity cost of soliciting investor choice
         self.current_phi = None
         self.n_solicited = 0 # Number of times investor is solicited
@@ -83,7 +83,7 @@ class PortfolioEnv(gym.Env):
     def simulate_investor_behaviour(self):
         self.n_solicited += 1 # Increase solicited count
         sampled_phi = np.random.normal(self.phi, self.r) # Sample above mean phi with std of r
-        sampled_phi = max(min(sampled_phi, 30), 1) # Clip at boundaries of valid phi value
+        sampled_phi = max(min(sampled_phi, 20), 1) # Clip at boundaries of valid phi value
             
         return sampled_phi
 
@@ -109,7 +109,7 @@ class PortfolioEnv(gym.Env):
         return reward
         
     def step(self, action):
-        action = action[:-1] # Portfolio allocation decision
+        portfolio_choice = action[:-1] # Portfolio allocation decision
         ask_investor = action[-1] > 0.5 # Decision to ask the investor
 
         if ask_investor:
@@ -118,13 +118,13 @@ class PortfolioEnv(gym.Env):
             investor_phi = self.simulate_investor_behaviour()
 
             # Generate portfolio corresponding to risk profile using PO
-            action = forward_problem(self.constituents_returns.iloc[:self.current_timestep+1, :], investor_phi, True)[-1] # Take portfolio at timestep t 
+            portfolio_choice = forward_problem(self.constituents_returns.iloc[:self.current_timestep+1, :], investor_phi, True)[-1] # Take portfolio at timestep t 
 
         # Normalize the portfolio weights to sum to 1
-        normalized_action = action / np.sum(action)
+        normalized_portfolio_choice = portfolio_choice / np.sum(portfolio_choice)
 
         self.current_timestep += 1 # Increment current timestep
-        self.current_portfolio = normalized_action # Update current portfolio
+        self.current_portfolio = normalized_portfolio_choice # Update current portfolio
         self.current_market_condition = self.get_market_condition() # Retrieve new market condition
         next_state = self.get_state() # Retrieve next state
         reward = self.calculate_reward(ask_investor) # Calculate reward

@@ -19,6 +19,6 @@ def mean_variance_utility(constituents_returns, portfolio_weights, r):
     Q_t = np.cov(constituents_returns.values.T)
 
     # Calculate variance for portfolio
-    variance = np.dot(Q_t, portfolio_weights)
+    variance = np.dot(portfolio_weights, np.dot(Q_t, portfolio_weights))
 
     return expected_return - r * variance
