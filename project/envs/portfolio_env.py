@@ -3,9 +3,9 @@ import gymnasium as gym
 from project.ipo_agent.forward_problem import forward_problem
 from project.ipo_agent.inverse_problem import inverse_problem
 from project.utils.utility_function import mean_variance_utility
+from project.utils.others import normalize_portfolio
 
 # Notes:
-# Need to modify returns so that they are daily (if using daily timesteps)
 # Market condition not used at the moment (no reason for market condition as it was used to estimate returns?)
 # Consider changing state to market prices or portfolio value that's what market condition is for
 class PortfolioEnv(gym.Env):
@@ -45,7 +45,7 @@ class PortfolioEnv(gym.Env):
         # Investor behaviour parameters, set of phi values is {1 to 30}
         self.phi = 15 # Current estimate of true risk profile
         self.r = 5 # Bounds size of investor mistakes about true risk profile
-        self.K = 0.0008 # Opportunity cost of soliciting investor choice
+        self.K = 0.0008 / 21 # Opportunity cost of soliciting investor choice (converted to daily basis based on monthly trading days)
         self.current_phi = None
         self.n_solicited = 0 # Number of times investor is solicited
 
@@ -72,11 +72,11 @@ class PortfolioEnv(gym.Env):
         
         # Determine market condition
         if weighted_volatility <= low_threshold_weighted:
-            market_condition = 'low'
+            market_condition = 0 #'low'
         elif weighted_volatility > high_threshold_weighted:
-            market_condition = 'high'
+            market_condition = 2 #'high'
         else:
-            market_condition = 'medium'
+            market_condition = 1 #'medium'
         
         return market_condition
 
@@ -121,24 +121,31 @@ class PortfolioEnv(gym.Env):
             portfolio_choice = forward_problem(self.constituents_returns.iloc[:self.current_timestep+1, :], investor_phi, True)[-1] # Take portfolio at timestep t 
 
         # Normalize the portfolio weights to sum to 1
-        normalized_portfolio_choice = portfolio_choice / np.sum(portfolio_choice)
+        normalized_portfolio_choice = normalize_portfolio(portfolio_choice)
 
         self.current_timestep += 1 # Increment current timestep
         self.current_portfolio = normalized_portfolio_choice # Update current portfolio
         self.current_market_condition = self.get_market_condition() # Retrieve new market condition
         next_state = self.get_state() # Retrieve next state
         reward = self.calculate_reward(ask_investor) # Calculate reward
-        done = self.current_timestep >= self.n_timesteps - 1 # Check if episode has ended
+        terminated = self.current_timestep >= self.n_timesteps - 1 # Check if episode has ended
+        truncated = False # Episodes aren't being cut short
         info = {}
 
-        return next_state, reward, done, info
+        return next_state, reward, terminated, truncated, info
 
-    def reset(self):
+    def reset(self, **kwargs):
+        # Use seed to reproduce investor behaviour simulation
+        seed = kwargs.get('seed', None)
+        if seed is not None:
+            np.random.seed(seed)
+
         self.current_timestep = 1200 # Reset timestep
         self.current_portfolio = np.full((self.n_assets,), 1/self.n_assets) # Reset to equally weighted portfolio
         self.current_market_condition = self.get_market_condition()
+        info = {}
 
-        return self.get_state()
+        return self.get_state(), info
 
     def render(self, mode='human'):
         if mode == 'human':
