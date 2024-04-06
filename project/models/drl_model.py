@@ -19,12 +19,10 @@ class DRLAgent:
             lookback_window_size = self.lookback_window_size,
             use_portfolio = self.use_portfolio)
 
-        print("Environment initialised")
-
         # Initialize PPO model with a Multi-Layer Perceptron (MLP) policy
         self.model = PPO("MlpPolicy", self.env, verbose=1)
 
-    def train(self, total_timesteps=1000):
+    def train(self, total_timesteps=10000):
         self.model.learn(total_timesteps=total_timesteps)
         print("Training completed.")
 
@@ -48,6 +46,6 @@ if __name__ == "__main__":
     # Initialise, train, and evaluate DRL agent
     agent = DRLAgent(constituents_prices, constituents_returns, constituents_volatility, use_portfolio=False)
     print("Agent initialised")
-    agent.train(total_timesteps=100000)
+    agent.train(total_timesteps=10000)
     evaluation_info = agent.evaluate()
     print("Evaluation results:", evaluation_info)
