@@ -47,5 +47,6 @@ if __name__ == "__main__":
     agent = DRLAgent(constituents_prices, constituents_returns, constituents_volatility, use_portfolio=False)
     print("Agent initialised")
     agent.train(total_timesteps=100000)
-    evaluation_info = agent.evaluate()
-    print("Evaluation results:", evaluation_info)
+    print("Agent trained")
+    #evaluation_info = agent.evaluate()
+    #print("Evaluation results:", evaluation_info)
