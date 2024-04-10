@@ -1,6 +1,6 @@
 import cvxpy as cp
 
-def solve_iporeturn(portfolio_allocations, Q, A, b, c_t, r_t, M=10**3, eta_t=1, verbose = False):
+def solve_iporeturn(portfolio_allocations, Q, A, b, c_t, r_t, M=100, eta_t=1, verbose = False):
     """
     Solves the IPO-Return optimization problem to learn time-varying expected returns c.
 
@@ -45,7 +45,7 @@ def solve_iporeturn(portfolio_allocations, Q, A, b, c_t, r_t, M=10**3, eta_t=1, 
 
     return c.value
 
-def solve_iporisk(portfolio_allocations, Q, A, b, c_t, r_t, M=10**3, eta_t=1, verbose = False):
+def solve_iporisk(portfolio_allocations, Q, A, b, c_t, r_t, M=100, eta_t=1, verbose = False):
     """
     Solves the IPO-Risk optimization problem to learn time-varying risk tolerance r.
 
