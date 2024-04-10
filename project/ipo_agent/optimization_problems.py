@@ -1,6 +1,6 @@
 import cvxpy as cp
 
-def solve_iporeturn(portfolio_allocations, Q, A, b, r, c_t, M=10**3, eta_t=1):
+def solve_iporeturn(portfolio_allocations, Q, A, b, c_t, r_t, M=10**3, eta_t=1, verbose = False):
     """
     Solves the IPO-Return optimization problem to learn time-varying expected returns c.
 
@@ -9,7 +9,7 @@ def solve_iporeturn(portfolio_allocations, Q, A, b, r, c_t, M=10**3, eta_t=1):
     - constituents_returns: Array with constituents returns.
     - Q: Covariance matrix of asset returns.
     - A, b: Constraints for the portfolio optimization problem.
-    - r: Fixed risk tolerance factor from IPO-Risk solution.
+    - r_t: Fixed risk tolerance factor from IPO-Risk solution.
     - ct: Current estimates of asset-level expected returns.
     - M: A large number for the mixed-integer programming constraint.
     - eta_t: Regularization parameter.
@@ -30,19 +30,22 @@ def solve_iporeturn(portfolio_allocations, Q, A, b, r, c_t, M=10**3, eta_t=1):
 
     # Constraints
     constraints = [
-        A @ x == b,
+        A @ x >= b,
         u <= M * z,
         A @ x - b <= M * (1 - z),
-        Q @ x - r * c - A.T @ u == 0,
+        Q @ x - r_t * c - A.T @ u == 0,
     ]
 
     # Solve
     problem = cp.Problem(objective, constraints)
     problem.solve(solver=cp.MOSEK)
 
+    if verbose:
+        print("IPO-Return", c.value, r_t, x.value)
+
     return c.value
 
-def solve_iporisk(portfolio_allocations, Q, A, b, c, r_t, M=10**3, eta_t=1):
+def solve_iporisk(portfolio_allocations, Q, A, b, c_t, r_t, M=10**3, eta_t=1, verbose = False):
     """
     Solves the IPO-Risk optimization problem to learn time-varying risk tolerance r.
 
@@ -59,7 +62,7 @@ def solve_iporisk(portfolio_allocations, Q, A, b, c, r_t, M=10**3, eta_t=1):
     Returns:
     - r: Learned risk tolerance.
     """
-    n_assets = c.shape[0]
+    n_assets = c_t.shape[0]
 
     # Variables
     r = cp.Variable()
@@ -72,14 +75,17 @@ def solve_iporisk(portfolio_allocations, Q, A, b, c, r_t, M=10**3, eta_t=1):
 
     # Constraints
     constraints = [
-        A @ x == b,
+        A @ x >= b,
         u <= M * z,
         A @ x - b <= M * (1 - z),
-        Q @ x - r * c - A.T @ u == 0,
+        Q @ x - r * c_t - A.T @ u == 0,
     ]
 
     # Solve
     problem = cp.Problem(objective, constraints)
     problem.solve(solver=cp.MOSEK)
+
+    if verbose:
+        print("IPO-Risk", c_t, r.value, x.value)
 
     return r.value
