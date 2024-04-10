@@ -43,15 +43,15 @@ class PortfolioEnv(gym.Env):
         self.current_market_condition = self.get_market_condition()
 
         # Investor behaviour parameters, set of phi values is {1 to 30}
-        self.phi = 15 # Current estimate of true risk profile
-        self.r = 5 # Bounds size of investor mistakes about true risk profile
+        self.phi = 0.5 # Current estimate of true risk profile
+        self.r = 0.4 # Bounds size of investor mistakes about true risk profile
         self.K = 0.0008 / 21 # Opportunity cost of soliciting investor choice (converted to daily basis based on monthly trading days)
         self.current_phi = None
         self.n_solicited = 0 # Number of times investor is solicited
 
         # Hyperparameters for IPO agent
-        self.M = 100
-        self.learning_rate = 100
+        self.M = 10000
+        self.learning_rate = 10000 # Not used as doing one-shot IPO
 
     def get_state(self):
             if self.use_portfolio:
@@ -83,7 +83,7 @@ class PortfolioEnv(gym.Env):
     def simulate_investor_behaviour(self):
         self.n_solicited += 1 # Increase solicited count
         sampled_phi = np.random.normal(self.phi, self.r) # Sample above mean phi with std of r
-        sampled_phi = max(min(sampled_phi, 20), 1) # Clip at boundaries of valid phi value
+        sampled_phi = max(min(sampled_phi, 1), 0.1) # Clip at boundaries of valid phi value
             
         return sampled_phi
 
