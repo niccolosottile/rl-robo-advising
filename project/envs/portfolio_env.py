@@ -44,7 +44,7 @@ class PortfolioEnv(gym.Env):
 
         # Investor behaviour parameters, set of phi values is {1 to 30}
         self.phi = 0.5 # Current estimate of true risk profile
-        self.r = 0.4 # Bounds size of investor mistakes about true risk profile
+        self.r = 0.5 # Bounds size of investor mistakes about true risk profile
         self.K = 0.0008 / 21 # Opportunity cost of soliciting investor choice (converted to daily basis based on monthly trading days)
         self.current_phi = None
         self.n_solicited = 0 # Number of times investor is solicited
@@ -140,6 +140,7 @@ class PortfolioEnv(gym.Env):
         if seed is not None:
             np.random.seed(seed)
 
+        self.n_solicited = 0 # Reset times investor solicited
         self.current_timestep = 1200 # Reset timestep
         self.current_portfolio = np.full((self.n_assets,), 1/self.n_assets) # Reset to equally weighted portfolio
         self.current_market_condition = self.get_market_condition()

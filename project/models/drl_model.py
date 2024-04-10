@@ -4,7 +4,7 @@ from project.envs.portfolio_env import PortfolioEnv
 from project.utils.data_loader import load_and_prepare_prices, load_and_prepare_returns, load_and_prepare_volatility
 
 class DRLAgent:
-    def __init__(self, constituents_prices, constituents_returns, constituents_volatility, lookback_window_size=100, use_portfolio=True):
+    def __init__(self, constituents_prices, constituents_returns, constituents_volatility, lookback_window_size=1200, use_portfolio=True):
         self.constituents_prices = constituents_prices
         self.constituents_returns = constituents_returns
         self.constituents_volatility = constituents_volatility
