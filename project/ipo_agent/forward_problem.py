@@ -1,7 +1,7 @@
 import cvxpy as cp
 import numpy as np
 
-def forward_problem(constituents_returns, r, only_last=False):
+def forward_problem(constituents_returns, r, only_last=False, verbose=False):
     """Forward problem that estimates optimal portfolio allocation given risk profile."""
     n_assets = constituents_returns.shape[1]
     n_time_steps = constituents_returns.shape[0]
@@ -21,11 +21,11 @@ def forward_problem(constituents_returns, r, only_last=False):
         c_t = constituents_returns.values[start_index:end_index].mean(axis=0)
         Q_t = np.cov(constituents_returns.values[start_index:end_index].T)
 
-        #if t >= 1275:
-            #print("Forward uses:")
-            #print(Q_t)
-            #print(c_t)
-            #print("True risk: ", r)
+        if verbose:
+            print("Forward uses:")
+            print(Q_t)
+            print(c_t)
+            print("True risk: ", r)
         
         # Variables
         x_t = cp.Variable(n_assets, nonneg=True)

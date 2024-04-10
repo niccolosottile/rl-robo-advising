@@ -43,15 +43,15 @@ class PortfolioEnv(gym.Env):
         self.current_market_condition = self.get_market_condition()
 
         # Investor behaviour parameters, set of phi values is {1 to 30}
-        self.phi = 0.5 # Current estimate of true risk profile
+        self.phi = 0.5 # True risk profile
         self.r = 0.5 # Bounds size of investor mistakes about true risk profile
         self.K = 0.0008 / 21 # Opportunity cost of soliciting investor choice (converted to daily basis based on monthly trading days)
-        self.current_phi = None
+        self.current_phi = 0.5 # Current estimate of true risk profile
         self.n_solicited = 0 # Number of times investor is solicited
 
         # Hyperparameters for IPO agent
-        self.M = 10000
-        self.learning_rate = 10000 # Not used as doing one-shot IPO
+        self.M = 100
+        self.learning_rate = 100
 
     def get_state(self):
             if self.use_portfolio:
@@ -90,7 +90,7 @@ class PortfolioEnv(gym.Env):
     def calculate_reward(self, ask_investor):
         if ask_investor:
             # Generate risk profile corresponding to portfolio using IPO
-            inferred_phi = inverse_problem(self.constituents_returns.iloc[:self.current_timestep+1, :], self.current_portfolio, self.current_phi, self.M, self.learning_rate, True)
+            inferred_phi = inverse_problem(self.constituents_returns.iloc[:self.current_timestep+1, :], self.current_portfolio, self.current_phi, self.M, self.learning_rate, only_last=True, verbose=False)
 
             # Update estimate of phi
             if self.n_solicited == 1:
@@ -112,18 +112,19 @@ class PortfolioEnv(gym.Env):
         portfolio_choice = action[:-1] # Portfolio allocation decision
         ask_investor = action[-1] > 0.5 # Decision to ask the investor
 
+        self.current_timestep += 1 # Increment current timestep
+
         if ask_investor:
             # Real environment wouldn't require this
             # Simulate current investor risk profile
             investor_phi = self.simulate_investor_behaviour()
 
             # Generate portfolio corresponding to risk profile using PO
-            portfolio_choice = forward_problem(self.constituents_returns.iloc[:self.current_timestep+1, :], investor_phi, True)[-1] # Take portfolio at timestep t 
+            portfolio_choice = forward_problem(self.constituents_returns.iloc[:self.current_timestep+1, :], investor_phi, only_last=True, verbose=False)[-1] # Take portfolio at timestep t 
 
         # Normalize the portfolio weights to sum to 1
         normalized_portfolio_choice = normalize_portfolio(portfolio_choice)
 
-        self.current_timestep += 1 # Increment current timestep
         self.current_portfolio = normalized_portfolio_choice # Update current portfolio
         self.current_market_condition = self.get_market_condition() # Retrieve new market condition
         next_state = self.get_state() # Retrieve next state
