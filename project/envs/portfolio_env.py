@@ -131,7 +131,8 @@ class PortfolioEnv(gym.Env):
         reward = self.calculate_reward(ask_investor) # Calculate reward
         terminated = self.current_timestep >= self.n_timesteps - 1 # Check if episode has ended
         truncated = False # Episodes aren't being cut short
-        info = {}
+        info = {'current_phi': self.current_phi}
+
 
         return next_state, reward, terminated, truncated, info
 

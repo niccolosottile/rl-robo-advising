@@ -2,8 +2,6 @@
 # "Learning Risk Preferences from Investment Portfolios Using Inverse Optimization"
 # By Shi Yu Haoran Wang & Chaosheng Dong
 
-# Adopt different hyperparameters for IPO-Risk and IPO-Return
-
 import numpy as np
 import pandas as pd
 from itertools import product

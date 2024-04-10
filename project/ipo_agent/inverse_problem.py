@@ -12,7 +12,7 @@ def inverse_problem(constituents_returns, portfolio_allocations, r_g, M, learnin
     b = np.array([1]) # Bounds for linear constraints
     r_t = r_g # Initial guess for r
     L = 1200 # Lookback window
-    offset = 0 if not only_last else n_time_steps - 2 # Don't process all timesteps (change to starting point of online learning)
+    offset = 1200 if not only_last else n_time_steps - 2 # Don't process all timesteps (change to starting point of online learning)
 
     # Iterative process of alternatively learning r and c in online fashion.
     for t in range(1 + offset, n_time_steps):
