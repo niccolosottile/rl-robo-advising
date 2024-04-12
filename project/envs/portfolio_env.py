@@ -5,6 +5,7 @@ from project.ipo_agent.inverse_problem import inverse_problem
 from project.utils.utility_function import mean_variance_utility
 from project.utils.others import normalize_portfolio
 import json
+import os
 
 # Notes:
 # Market condition not used at the moment (no reason for market condition as it was used to estimate returns?)
@@ -50,6 +51,12 @@ class PortfolioEnv(gym.Env):
         self.current_phi = 0 # Current estimate of true risk profile
         self.n_solicited = 0 # Number of times investor is solicited
         self.phi_values = []  # Store phi values for each step
+        
+        # Investor shift in risk profile parameters:
+        self.shifted_phi = 0.4
+        self.shifted_r = 0.1
+        self.apply_shift = True
+        self.timestep_shift = 1210
 
         # Hyperparameters for IPO agent
         self.M = 100
@@ -84,7 +91,10 @@ class PortfolioEnv(gym.Env):
 
     def simulate_investor_behaviour(self):
         self.n_solicited += 1 # Increase solicited count
-        sampled_phi = np.random.normal(self.phi, self.r) # Sample above mean phi with std of r
+        if self.apply_shift and self.current_timestep >= self.timestep_shift:
+            sampled_phi = np.random.normal(self.shifted_phi, self.shifted_r) # Apply shifted risk profile parameters
+        else:
+            sampled_phi = np.random.normal(self.phi, self.r)  # Sample above mean phi with std of r
         sampled_phi = max(min(sampled_phi, 1), 0.1) # Clip at boundaries of valid phi value
             
         return sampled_phi
@@ -148,9 +158,11 @@ class PortfolioEnv(gym.Env):
         # Write phi values to file at the end of an episode for evaluation
         if self.phi_values:  # Check if list is not empty
             phi_values_path = "project/data/phi_values.json"
-            with open(phi_values_path, 'w') as f:
-                json.dump(self.phi_values, f)
-            print(f"Phi values saved to {phi_values_path}")
+            # Check if the file exists and is not empty
+            if not os.path.exists(phi_values_path) or os.path.getsize(phi_values_path) == 0:
+                with open(phi_values_path, 'w') as f:
+                    json.dump(self.phi_values, f)
+                print(f"Phi values saved to {phi_values_path}")
             self.phi_values = []  # Reset phi values for the next episode
 
         self.n_solicited = 0 # Reset count investor solicited

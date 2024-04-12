@@ -103,29 +103,44 @@ if __name__ == "__main__":
     constituents_volatility = load_and_prepare_volatility('project/data/ACWI.csv', 'project/data/AGGU.L.csv')
 
     # Initialise, train, and evaluate DRL agent
-    agent = DRLAgent(constituents_prices, constituents_returns, constituents_volatility, 1200, 0.5, 0.5, use_portfolio=False)
+    agent = DRLAgent(constituents_prices, constituents_returns, constituents_volatility, 1200, 0.2, 0.1, use_portfolio=False)
 
     model_path = "project/models/model.zip" # Path to save or load model from
     phi_values_path = "project/data/phi_values.json"  # Path to save or load phi values from
-    train_model = True # Option to train or load already trained model
+    train_model = False # Option to train or load already trained model
 
     if train_model:
-        agent.train(total_timesteps=100000)
+        agent.train(total_timesteps=1000)
         # Save the trained model
         agent.save_model(model_path)
     else:
         # Load the model for evaluation
         agent.load_model(model_path)
-        # Load the phi values for evaluation
-        agent.load_phi_values(phi_values_path)
+
+    # Load the phi values for evaluation
+    agent.load_phi_values(phi_values_path)
     
     plt.figure(figsize=(10, 6))
+
+    # Plotting the estimated risk profile
     plt.plot(agent.phi_values, label='Estimated Risk Profile')
-    plt.axhline(y=0.5, color='r', linestyle='-', label='True Risk Profile')
+
+    # Adding two horizontal lines to represent the change in the true risk profile
+    plt.axhline(y=0.2, color='r', linestyle='-', xmin=0, xmax=13/len(agent.phi_values), label='True Risk Profile until timestep 10')
+    plt.axhline(y=0.4, color='r', linestyle='-', xmin=13/len(agent.phi_values), xmax=1, label='True Risk Profile after timestep 10')
+
+    # Mark the change point
+    plt.axvline(x=10, color='g', linestyle='--', label='Change in Risk Profile')
+
+    # Setting labels and title
     plt.xlabel('Timestep')
     plt.ylabel('Risk Profile (Phi)')
     plt.title('Convergence of Estimated Risk Profile Over Training Timesteps')
+
+    # Adding legend to the plot
     plt.legend()
+
+    # Display the plot
     plt.show()
 
     # Evaluate the model
