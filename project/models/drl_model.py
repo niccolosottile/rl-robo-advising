@@ -2,14 +2,18 @@ import numpy as np
 from stable_baselines3 import PPO
 from project.envs.portfolio_env import PortfolioEnv
 from project.utils.data_loader import load_and_prepare_prices, load_and_prepare_returns, load_and_prepare_volatility
+import matplotlib.pyplot as plt
+import json
 
 class DRLAgent:
-    def __init__(self, constituents_prices, constituents_returns, constituents_volatility, lookback_window_size=1200, use_portfolio=True):
+    def __init__(self, constituents_prices, constituents_returns, constituents_volatility, lookback_window_size, phi, r, use_portfolio=True):
         self.constituents_prices = constituents_prices
         self.constituents_returns = constituents_returns
         self.constituents_volatility = constituents_volatility
         self.lookback_window_size = lookback_window_size
         self.use_portfolio = use_portfolio
+        self.phi = phi,
+        self.r = r
         
         # Setup the environment with market data
         self.env = PortfolioEnv(
@@ -17,23 +21,78 @@ class DRLAgent:
             constituents_returns = self.constituents_returns, 
             consitutents_volatility = self.constituents_volatility,                     
             lookback_window_size = self.lookback_window_size,
-            use_portfolio = self.use_portfolio)
+            phi=self.phi,
+            r=self.r,
+            use_portfolio = self.use_portfolio
+            )
 
         # Initialize PPO model with a Multi-Layer Perceptron (MLP) policy
         self.model = PPO("MlpPolicy", self.env, verbose=1)
+
+        print("Agent initialised.")
 
     def train(self, total_timesteps=10000):
         self.model.learn(total_timesteps=total_timesteps)
         print("Training completed.")
 
-    def evaluate(self):
-        observation = self.env.reset()
-        while True:
-            action, _ = self.model.predict(observation, deterministic=True)
-            observation, reward, done, info = self.env.step(action)
-            if done:
-                break
-        return info
+    def evaluate(self, num_episodes=10, true_risk_profile=0.5):
+        total_rewards = []
+        phi_values = []
+        phi_deviations = []
+
+        for episode in range(num_episodes):
+            obs, _ = self.env.reset()
+            done = False
+            total_reward = 0
+            episode_phi_values = []
+
+            while not done:
+                action, _ = self.model.predict(obs, deterministic=True)
+                obs, reward, done, _, info = self.env.step(action)
+                total_reward += reward
+                current_phi = info.get('current_phi', None)
+                episode_phi_values.append(current_phi)
+
+            # Calculate and store deviations from true risk profile for this episode
+            deviations = [abs(phi - true_risk_profile) for phi in episode_phi_values if phi is not None]
+            phi_deviations.append(np.mean(deviations) if deviations else None)
+
+            total_rewards.append(total_reward)
+            phi_values.extend(episode_phi_values)  # Extend to flatten list of lists
+
+        avg_reward = np.mean(total_rewards)
+        avg_deviation = np.nanmean(phi_deviations)  # Using nanmean to ignore None values
+        avg_phi = np.mean(phi_values)
+        print(f"Average Reward: {avg_reward}")
+        print(f"Average Deviation from True Risk Profile: {avg_deviation}")
+
+        # Plotting
+        plt.figure(figsize=(10, 5))
+        plt.plot(phi_deviations, label='Deviation from True Risk Profile per Episode')
+        plt.xlabel('Episode')
+        plt.ylabel('Deviation from True Risk Profile')
+        plt.title('Convergence of Estimated Risk Profile to True Risk Profile')
+        plt.legend()
+        plt.show()
+
+        # More detailed evaluation data
+        return {'average_reward': avg_reward, 'average_phi_deviation': avg_deviation, 'average_phi_value': avg_phi}
+
+    def save_model(self, path):
+        """Saves the model to the specified path."""
+        self.model.save(path)
+        print(f"Model saved to {model_path}")
+    
+    def load_model(self, path):
+        """Loads the model from the specified path."""
+        self.model = PPO.load(path, env=self.env) 
+        print(f"Model loaded from {model_path}")
+
+    def load_phi_values(self, path):
+        """Loads phi values from the specified path."""
+        with open(path, 'r') as f:
+            self.phi_values = json.load(f)
+        print(f"Phi values loaded from {path}")
 
 if __name__ == "__main__":
     # Extracting constituents prices
@@ -44,9 +103,31 @@ if __name__ == "__main__":
     constituents_volatility = load_and_prepare_volatility('project/data/ACWI.csv', 'project/data/AGGU.L.csv')
 
     # Initialise, train, and evaluate DRL agent
-    agent = DRLAgent(constituents_prices, constituents_returns, constituents_volatility, use_portfolio=False)
-    print("Agent initialised")
-    agent.train(total_timesteps=100000)
-    print("Agent trained")
-    #evaluation_info = agent.evaluate()
+    agent = DRLAgent(constituents_prices, constituents_returns, constituents_volatility, 1200, 0.5, 0.5, use_portfolio=False)
+
+    model_path = "project/models/model.zip" # Path to save or load model from
+    phi_values_path = "project/data/phi_values.json"  # Path to save or load phi values from
+    train_model = True # Option to train or load already trained model
+
+    if train_model:
+        agent.train(total_timesteps=100000)
+        # Save the trained model
+        agent.save_model(model_path)
+    else:
+        # Load the model for evaluation
+        agent.load_model(model_path)
+        # Load the phi values for evaluation
+        agent.load_phi_values(phi_values_path)
+    
+    plt.figure(figsize=(10, 6))
+    plt.plot(agent.phi_values, label='Estimated Risk Profile')
+    plt.axhline(y=0.5, color='r', linestyle='-', label='True Risk Profile')
+    plt.xlabel('Timestep')
+    plt.ylabel('Risk Profile (Phi)')
+    plt.title('Convergence of Estimated Risk Profile Over Training Timesteps')
+    plt.legend()
+    plt.show()
+
+    # Evaluate the model
+    #evaluation_info = agent.evaluate(num_episodes=100)
     #print("Evaluation results:", evaluation_info)

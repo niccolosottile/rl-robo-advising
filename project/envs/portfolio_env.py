@@ -4,6 +4,7 @@ from project.ipo_agent.forward_problem import forward_problem
 from project.ipo_agent.inverse_problem import inverse_problem
 from project.utils.utility_function import mean_variance_utility
 from project.utils.others import normalize_portfolio
+import json
 
 # Notes:
 # Market condition not used at the moment (no reason for market condition as it was used to estimate returns?)
@@ -11,7 +12,7 @@ from project.utils.others import normalize_portfolio
 class PortfolioEnv(gym.Env):
     metadata = {'render_modes': ['human']}
 
-    def __init__(self, constituents_prices, constituents_returns, consitutents_volatility, lookback_window_size, use_portfolio=True):
+    def __init__(self, constituents_prices, constituents_returns, consitutents_volatility, lookback_window_size, phi, r, use_portfolio=True):
         super(PortfolioEnv, self).__init__()
         self.constituents_prices = constituents_prices
         self.constituents_returns = constituents_returns
@@ -42,12 +43,13 @@ class PortfolioEnv(gym.Env):
         self.current_portfolio = np.full((self.n_assets,), 1/self.n_assets)  # Start with equally weighted portfolio
         self.current_market_condition = self.get_market_condition()
 
-        # Investor behaviour parameters, set of phi values is {1 to 30}
-        self.phi = 0.5 # True risk profile
-        self.r = 0.5 # Bounds size of investor mistakes about true risk profile
+        # Investor behaviour parameters, set of phi values is {0.1 to 1}
+        self.phi = phi # True risk profile
+        self.r = r # Bounds size of investor mistakes about true risk profile
         self.K = 0.0008 / 21 # Opportunity cost of soliciting investor choice (converted to daily basis based on monthly trading days)
-        self.current_phi = 0.5 # Current estimate of true risk profile
+        self.current_phi = 0 # Current estimate of true risk profile
         self.n_solicited = 0 # Number of times investor is solicited
+        self.phi_values = []  # Store phi values for each step
 
         # Hyperparameters for IPO agent
         self.M = 100
@@ -90,7 +92,7 @@ class PortfolioEnv(gym.Env):
     def calculate_reward(self, ask_investor):
         if ask_investor:
             # Generate risk profile corresponding to portfolio using IPO
-            inferred_phi = inverse_problem(self.constituents_returns.iloc[:self.current_timestep+1, :], self.current_portfolio, self.current_phi, self.M, self.learning_rate, only_last=True, verbose=False)
+            inferred_phi = inverse_problem(self.constituents_returns.iloc[:self.current_timestep+1, :], self.current_portfolio, self.current_phi, self.M, self.learning_rate, only_last=True, verbose=False).tolist()
 
             # Update estimate of phi
             if self.n_solicited == 1:
@@ -131,8 +133,9 @@ class PortfolioEnv(gym.Env):
         reward = self.calculate_reward(ask_investor) # Calculate reward
         terminated = self.current_timestep >= self.n_timesteps - 1 # Check if episode has ended
         truncated = False # Episodes aren't being cut short
-        info = {'current_phi': self.current_phi}
+        info = {}
 
+        self.phi_values.append(self.current_phi)  # Append current_phi value for evaluation
 
         return next_state, reward, terminated, truncated, info
 
@@ -142,7 +145,16 @@ class PortfolioEnv(gym.Env):
         if seed is not None:
             np.random.seed(seed)
 
-        self.n_solicited = 0 # Reset times investor solicited
+        # Write phi values to file at the end of an episode for evaluation
+        if self.phi_values:  # Check if list is not empty
+            phi_values_path = "project/data/phi_values.json"
+            with open(phi_values_path, 'w') as f:
+                json.dump(self.phi_values, f)
+            print(f"Phi values saved to {phi_values_path}")
+            self.phi_values = []  # Reset phi values for the next episode
+
+        self.n_solicited = 0 # Reset count investor solicited
+        self.current_phi = 0 # Reset phi
         self.current_timestep = 1200 # Reset timestep
         self.current_portfolio = np.full((self.n_assets,), 1/self.n_assets) # Reset to equally weighted portfolio
         self.current_market_condition = self.get_market_condition()
