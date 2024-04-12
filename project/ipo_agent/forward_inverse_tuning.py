@@ -35,7 +35,7 @@ for M, learning_rate in product(M_values, learning_rates):
         generated_portfolios = forward_problem(constituents_returns, r_s) # The forward problem to generate portfolio
 
         for r_g in guessed_risk_aversions:
-            estimated_r = inverse_problem(constituents_returns, generated_portfolios, r_g, M, learning_rate) # The inverse problem to estimate r back
+            estimated_r = inverse_problem(constituents_returns, generated_portfolios, r_g, M, learning_rate)[-1] # The inverse problem to estimate r back
             errors.append((estimated_r - r_s)**2 / r_s**2) # Calculate sum of square error
 
             #print(r_s, r_g, estimated_r)

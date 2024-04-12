@@ -102,7 +102,7 @@ class PortfolioEnv(gym.Env):
     def calculate_reward(self, ask_investor):
         if ask_investor:
             # Generate risk profile corresponding to portfolio using IPO
-            inferred_phi = inverse_problem(self.constituents_returns.iloc[:self.current_timestep+1, :], self.current_portfolio, self.current_phi, self.M, self.learning_rate, only_last=True, verbose=False).tolist()
+            inferred_phi = inverse_problem(self.constituents_returns.iloc[:self.current_timestep+1, :], self.current_portfolio, self.current_phi, self.M, self.learning_rate, only_last=True, verbose=False)[-1]
 
             # Update estimate of phi
             if self.n_solicited == 1:

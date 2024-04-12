@@ -1,53 +1,69 @@
+from tabnanny import verbose
 import numpy as np
 import pandas as pd
-from project.utils.data_loader import load_and_prepare_data
-from project.ipo_agent.optimization_problems import solve_iporeturn,  solve_iporisk
+from project.utils.data_loader import load_and_prepare_returns
+from project.ipo_agent.forward_problem import forward_problem
+from project.ipo_agent.inverse_problem import inverse_problem
+import os
+import json
 
-# Preparing constituents returns
 # File paths
-acwi_file = 'Datasets/ACWI.csv'
-aggu_file = 'Datasets/AGGU.L.csv'
-# Load and prepare data
-constituents_returns = load_and_prepare_data(acwi_file, aggu_file)
+acwi_file = 'project/data/ACWI.csv'
+aggu_file = 'project/data/AGGU.L.csv'
+phi_values_path = "project/data/ipo_phi_values.json"
 
-# Initialization
-n_assets = constituents_returns.shape[1]
-n_time_steps = constituents_returns.values.shape[0] # Assuming constituents equally indexed by time
-A = np.ones((1, n_assets))  # Linear constraints since portfolio weights need to sum to 1
-b = np.array([1])  # Bounds for linear constraints
+# Extracting constituents returns 253-day rolling periods
+constituents_returns = load_and_prepare_returns(acwi_file, aggu_file)
 
-# Hyperparameters (later should be different for each of IPO-Risk and IPO-Return)
+n_time_steps = constituents_returns.values.shape[0]
+
+# Investor behaviour parameters
+phi = 0.2
+r = 0.1
+shifted_phi = 0.4
+shifted_r = 0.1
+apply_shift = False
+timestep_shift = 1210
+r_g = 1.0
+
+# Hyperparameters
 M = 100
 learning_rate = 100
 
-# Prepare asset allocations
-# List of asset allocations for n_assets
-asset_allocations = [0.7, 0.3]
-# Verify the length of asset_allocations matches n_assets
-if len(asset_allocations) != n_assets:
-    raise ValueError("Length of asset_allocations must match n_assets")
-# Creating portfolio allocations DataFrame with different allocations per asset, constant across time_steps
-portfolio_allocations = pd.DataFrame(np.tile(asset_allocations, (n_time_steps, 1)))
+def simulate_investor_behaviour(current_timestep):
+    """Simulates investor behaviour according to normal distribution"""
+    if apply_shift and current_timestep >= timestep_shift:
+        sampled_phi = np.random.normal(shifted_phi, shifted_r) # Apply shifted risk profile parameters
+    else:
+        sampled_phi = np.random.normal(phi, r)  # Sample above mean phi with std of r
+    sampled_phi = max(min(sampled_phi, 1), 0.1) # Clip at boundaries of valid phi value
+        
+    return sampled_phi
 
-# Iterative process of alternatively learning r and c in online fashion.
-for t in range(1, n_time_steps):
-    current_allocations = portfolio_allocations.values[t]
-    r_t = 1.0 # Initial guess for r
+# Generate all allocations based on simulated investor behaviour
+all_allocations = []
+
+for t in range(1200, n_time_steps):
+    current_phi = simulate_investor_behaviour(t)
     
-    # Calculate return mean up to current time t for each asset
-    c_t = []
-    for i in range(n_assets):
-        c_i_t = constituents_returns.values[:t+1, i].mean()
-        c_t.append(c_i_t)
+    if t == 1200:
+        all_allocations = forward_problem(constituents_returns, current_phi)[:t+1]
+    else:
+        current_allocations = forward_problem(constituents_returns.iloc[:t+1, :], current_phi, only_last=True)[-1]
+        all_allocations.append(current_allocations)
 
-    Q_t = np.cov(constituents_returns.values[:t+1].T) # Measures covariance between assets (used to reflect combined risk of returns)
-    eta_t = learning_rate / (t ** 0.5)
+phi_values = inverse_problem(constituents_returns, all_allocations, r_g, M, learning_rate)[:timestep_shift - 1200]
 
-    # Solve for c given r
-    c_t = solve_iporeturn(current_allocations, constituents_returns, Q_t, A, b, r_t, c_t, M, eta_t)
+# Compute incremental average
+avg_phi_values = []
+for i in range(len(phi_values)):
+    avg_phi_values.append(np.mean(phi_values[:i+1]))
 
-    # Solve for r given c
-    r_t = solve_iporisk(current_allocations, constituents_returns, Q_t, A, b, c_t, r_t, M, eta_t)
+if not apply_shift:
+    for t in range(timestep_shift, n_time_steps):
+        phi_values.append(phi_values[-1])
 
-print(c_t)
-print(r_t)
+# Write phi values to data file
+with open(phi_values_path, 'w') as f:
+    json.dump(phi_values, f)
+print(f"Phi values saved to {phi_values_path}")

@@ -14,6 +14,8 @@ def inverse_problem(constituents_returns, portfolio_allocations, r_g, M, learnin
     L = 1200 # Lookback window
     offset = 1200 if not only_last else n_time_steps - 2 # Don't process all timesteps (change to starting point of online learning)
 
+    r_values = []
+
     # Iterative process of alternatively learning r and c in online fashion.
     for t in range(1 + offset, n_time_steps):
         # Derive current allocations
@@ -46,10 +48,13 @@ def inverse_problem(constituents_returns, portfolio_allocations, r_g, M, learnin
             #c_t = solve_iporeturn(current_allocations, Q_t, A, b, c_t, r_t, M, eta_t, verbose)
             r_t = solve_iporisk(current_allocations, Q_t, A, b, c_t, r_t, M, eta_t, verbose)
 
+            # Save r_t for current timestep
+            r_values.append(r_t.tolist())
+
             break # Already converged since not using alternate optimisation of IPO-Return and IPO-Risk
 
             # Check for convergence (using a simple L2 norm for demonstration)
             if np.linalg.norm(prev_c_t - c_t) < 1e-4 and np.linalg.norm(prev_r_t - r_t) < 1e-4:
                 break
 
-    return r_t
+    return r_values

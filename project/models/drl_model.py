@@ -107,7 +107,7 @@ if __name__ == "__main__":
 
     model_path = "project/models/model.zip" # Path to save or load model from
     phi_values_path = "project/data/phi_values.json"  # Path to save or load phi values from
-    train_model = False # Option to train or load already trained model
+    train_model = True # Option to train or load already trained model
 
     if train_model:
         agent.train(total_timesteps=1000)
