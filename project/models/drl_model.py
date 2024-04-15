@@ -107,7 +107,7 @@ if __name__ == "__main__":
 
     model_path = "project/models/model.zip" # Path to save or load model from
     phi_values_path = "project/data/phi_values.json"  # Path to save or load phi values from
-    train_model = True # Option to train or load already trained model
+    train_model = False # Option to train or load already trained model
 
     if train_model:
         agent.train(total_timesteps=1000)
@@ -120,14 +120,28 @@ if __name__ == "__main__":
     # Load the phi values for evaluation
     agent.load_phi_values(phi_values_path)
     
+    # Load the dynamic agent's phi values
+    dynamic_phi_values = agent.phi_values
+
+    # Load the fixed agent's phi values from a JSON file
+    with open("project/data/ipo_phi_values.json", 'r') as f:
+        fixed_phi_values = json.load(f)
+
+    # Determine the length for x-axis scaling
+    max_length = max(len(dynamic_phi_values), len(fixed_phi_values))
+
+    # Create a plot with specified figure size
     plt.figure(figsize=(10, 6))
 
-    # Plotting the estimated risk profile
-    plt.plot(agent.phi_values, label='Estimated Risk Profile')
+    # Plotting the estimated risk profile from dynamic agent
+    plt.plot(dynamic_phi_values, label='Dynamic Agent Estimated Risk Profile')
+
+    # Plotting the estimated risk profile from fixed agent
+    plt.plot(fixed_phi_values, label='Fixed Agent Estimated Risk Profile', linestyle='--')
 
     # Adding two horizontal lines to represent the change in the true risk profile
-    plt.axhline(y=0.2, color='r', linestyle='-', xmin=0, xmax=13/len(agent.phi_values), label='True Risk Profile until timestep 10')
-    plt.axhline(y=0.4, color='r', linestyle='-', xmin=13/len(agent.phi_values), xmax=1, label='True Risk Profile after timestep 10')
+    plt.axhline(y=0.2, color='r', linestyle='-', xmin=0, xmax=13/max_length, label='True Risk Profile until timestep 10')
+    plt.axhline(y=0.4, color='r', linestyle='-', xmin=13/max_length, xmax=1, label='True Risk Profile after timestep 10')
 
     # Mark the change point
     plt.axvline(x=10, color='g', linestyle='--', label='Change in Risk Profile')

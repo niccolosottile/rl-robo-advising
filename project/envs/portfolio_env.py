@@ -7,9 +7,6 @@ from project.utils.others import normalize_portfolio
 import json
 import os
 
-# Notes:
-# Market condition not used at the moment (no reason for market condition as it was used to estimate returns?)
-# Consider changing state to market prices or portfolio value that's what market condition is for
 class PortfolioEnv(gym.Env):
     metadata = {'render_modes': ['human']}
 
