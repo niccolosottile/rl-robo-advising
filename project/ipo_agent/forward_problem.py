@@ -1,3 +1,6 @@
+# "Learning Risk Preferences from Investment Portfolios Using Inverse Optimization"
+# By Shi Yu Haoran Wang & Chaosheng Dong
+
 import cvxpy as cp
 import numpy as np
 

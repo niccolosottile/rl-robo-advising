@@ -6,24 +6,19 @@ import matplotlib.pyplot as plt
 import json
 
 class DRLAgent:
-    def __init__(self, constituents_prices, constituents_returns, constituents_volatility, lookback_window_size, phi, r, use_portfolio=True):
+    def __init__(self, constituents_prices, constituents_returns, constituents_volatility):
         self.constituents_prices = constituents_prices
         self.constituents_returns = constituents_returns
         self.constituents_volatility = constituents_volatility
-        self.lookback_window_size = lookback_window_size
-        self.use_portfolio = use_portfolio
-        self.phi = phi,
-        self.r = r
         
         # Setup the environment with market data
         self.env = PortfolioEnv(
             constituents_prices = self.constituents_prices,
             constituents_returns = self.constituents_returns, 
             consitutents_volatility = self.constituents_volatility,                     
-            lookback_window_size = self.lookback_window_size,
-            phi=self.phi,
-            r=self.r,
-            use_portfolio = self.use_portfolio
+            lookback_window_size = 1200,
+            phi=0.2,
+            r=0.1,
             )
 
         # Initialize PPO model with a Multi-Layer Perceptron (MLP) policy
@@ -103,11 +98,11 @@ if __name__ == "__main__":
     constituents_volatility = load_and_prepare_volatility('project/data/ACWI.csv', 'project/data/AGGU.L.csv')
 
     # Initialise, train, and evaluate DRL agent
-    agent = DRLAgent(constituents_prices, constituents_returns, constituents_volatility, 1200, 0.2, 0.1, use_portfolio=False)
+    agent = DRLAgent(constituents_prices, constituents_returns, constituents_volatility)
 
     model_path = "project/models/model.zip" # Path to save or load model from
     phi_values_path = "project/data/phi_values.json"  # Path to save or load phi values from
-    train_model = False # Option to train or load already trained model
+    train_model = True # Option to train or load already trained model
 
     if train_model:
         agent.train(total_timesteps=1000)
@@ -160,3 +155,4 @@ if __name__ == "__main__":
     # Evaluate the model
     #evaluation_info = agent.evaluate(num_episodes=100)
     #print("Evaluation results:", evaluation_info)
+    

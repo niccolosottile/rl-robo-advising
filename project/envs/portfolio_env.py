@@ -1,41 +1,35 @@
 import numpy as np
 import gymnasium as gym
-from project.ipo_agent.forward_problem import forward_problem
-from project.ipo_agent.inverse_problem import inverse_problem
+from project.ipo_components.inverse_MVO_optimisation import inverse_MVO_optimisation
+from project.ipo_components.MVO_optimisation import MVO_optimisation
 from project.utils.utility_function import mean_variance_utility
 from project.utils.others import normalize_portfolio
 import json
 import os
 
+# Need to change it such that the investor behaviour depends on the market condition
+# Need to change it so that market conndition depends on returns
+# Need to develop offline and online training methodologies based on pseudocode written 
 class PortfolioEnv(gym.Env):
     metadata = {'render_modes': ['human']}
 
-    def __init__(self, constituents_prices, constituents_returns, consitutents_volatility, lookback_window_size, phi, r, use_portfolio=True):
+    def __init__(self, constituents_prices, constituents_returns, consitutents_volatility, lookback_window_size, phi, r):
         super(PortfolioEnv, self).__init__()
-        self.constituents_prices = constituents_prices
-        self.constituents_returns = constituents_returns
-        self.constituents_volatility = consitutents_volatility
-        self.low_threshold = np.array(self.constituents_volatility.quantile(0.33))
-        self.high_threshold = np.array(self.constituents_volatility.quantile(0.66))
+
+        # Historical data from preprocessed datasets
+        self.constituents_prices = constituents_prices # Used to affect cost of soliciting K
+        self.constituents_returns = constituents_returns # Used for utility function, and market conditions
+        self.constituents_volatility = consitutents_volatility # Used for market conditions
+
+        # Define environment size
         self.lookback_window_size = lookback_window_size # Affects lookback window L of PO and IPO agents
-        self.use_portfolio = use_portfolio # Uses portfolio as part of state representation
         self.n_assets = self.constituents_returns.shape[1]
         self.n_timesteps = self.constituents_returns.shape[0]
         self.current_timestep = 1
-        
-        # Define action space as a given portfolio allocation plus option to solicit investor
-        self.action_space = gym.spaces.Box(low=0, high=1, shape=(self.n_assets + 1,), dtype=np.float32)
 
-        # Define observation space
-        if self.use_portfolio:
-            # Observation space includes both portfolio and market condition if use_portfolio is True
-            self.observation_space = gym.spaces.Dict({
-                "current_portfolio": gym.spaces.Box(low=0, high=1, shape=(self.n_assets,), dtype=np.float32),
-                "market_condition": gym.spaces.Discrete(3) # Low, Medium, High
-            })
-        else:
-            # Observation space includes only market condition if use_portfolio is False
-            self.observation_space = gym.spaces.Discrete(3)
+        # Calculate thresholds to derive market conditions
+        self.low_threshold = np.array(self.constituents_volatility.quantile(0.33))
+        self.high_threshold = np.array(self.constituents_volatility.quantile(0.66))
 
         # State representations
         self.current_portfolio = np.full((self.n_assets,), 1/self.n_assets)  # Start with equally weighted portfolio
@@ -55,18 +49,14 @@ class PortfolioEnv(gym.Env):
         self.apply_shift = True
         self.timestep_shift = 1210
 
-        # Hyperparameters for IPO agent
-        self.M = 100
-        self.learning_rate = 100
+        # Define observation space based on set of market conditions
+        self.observation_space = gym.spaces.Discrete(3)
+
+        # Define action space as a given portfolio allocation plus ask space to solicit investor
+        self.action_space = gym.spaces.Box(low=0, high=1, shape=(self.n_assets + 1,), dtype=np.float32)
 
     def get_state(self):
-            if self.use_portfolio:
-                return {
-                    "current_portfolio": self.current_portfolio, 
-                    "market_condition": self.current_market_condition
-                }
-            else:
-                return self.current_market_condition
+        return self.current_market_condition
 
     def get_market_condition(self):
         current_volatilities = self.constituents_volatility.iloc[self.current_timestep] # Extract asset volatilities at current timestep
@@ -97,9 +87,10 @@ class PortfolioEnv(gym.Env):
         return sampled_phi
 
     def calculate_reward(self, ask_investor):
+        # If investor was asked update estimate of phi
         if ask_investor:
             # Generate risk profile corresponding to portfolio using IPO
-            inferred_phi = inverse_problem(self.constituents_returns.iloc[:self.current_timestep+1, :], self.current_portfolio, self.current_phi, self.M, self.learning_rate, only_last=True, verbose=False)[-1]
+            inferred_phi = inverse_MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep+1, :], self.current_portfolio)
 
             # Update estimate of phi
             if self.n_solicited == 1:
@@ -110,8 +101,9 @@ class PortfolioEnv(gym.Env):
         # Calculate reward using mean-variance utility function and current estimate of phi
         reward = mean_variance_utility(self.constituents_returns.iloc[:self.current_timestep+1, :], self.current_portfolio, self.current_phi)
 
+        # If investor was asked reduce reward
         if ask_investor:
-            # Reduce by cost of soliciting
+            # Reduce by cost of soliciting K based on portfolio value
             portfolio_value = np.dot(self.constituents_prices.iloc[self.current_timestep], self.current_portfolio)
             reward -= self.K * portfolio_value
 
@@ -124,12 +116,11 @@ class PortfolioEnv(gym.Env):
         self.current_timestep += 1 # Increment current timestep
 
         if ask_investor:
-            # Real environment wouldn't require this
             # Simulate current investor risk profile
             investor_phi = self.simulate_investor_behaviour()
 
-            # Generate portfolio corresponding to risk profile using PO
-            portfolio_choice = forward_problem(self.constituents_returns.iloc[:self.current_timestep+1, :], investor_phi, only_last=True, verbose=False)[-1] # Take portfolio at timestep t 
+            # Generate portfolio corresponding to risk profile using MVO optimisation
+            portfolio_choice = MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep+1, :], investor_phi)
 
         # Normalize the portfolio weights to sum to 1
         normalized_portfolio_choice = normalize_portfolio(portfolio_choice)

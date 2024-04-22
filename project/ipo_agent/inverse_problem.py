@@ -1,4 +1,6 @@
-from tabnanny import verbose
+# "Learning Risk Preferences from Investment Portfolios Using Inverse Optimization"
+# By Shi Yu Haoran Wang & Chaosheng Dong
+
 import numpy as np
 import pandas as pd
 from project.ipo_agent.optimization_problems import solve_iporeturn,  solve_iporisk

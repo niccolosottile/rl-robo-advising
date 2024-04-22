@@ -1,3 +1,6 @@
+# "Learning Risk Preferences from Investment Portfolios Using Inverse Optimization"
+# By Shi Yu Haoran Wang & Chaosheng Dong
+
 import cvxpy as cp
 
 def solve_iporeturn(portfolio_allocations, Q, A, b, c_t, r_t, M=100, eta_t=1, verbose = False):
