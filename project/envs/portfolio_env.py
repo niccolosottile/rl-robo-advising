@@ -12,7 +12,7 @@ import os
 class PortfolioEnv(gym.Env):
     metadata = {'render_modes': ['human']}
 
-    def __init__(self, constituents_prices, constituents_returns, consitutents_volatility, lookback_window_size, phi, r):
+    def __init__(self, constituents_prices, constituents_returns, consitutents_volatility, lookback_window_size, theta, r):
         super(PortfolioEnv, self).__init__()
 
         # Historical data from preprocessed datasets
@@ -25,6 +25,7 @@ class PortfolioEnv(gym.Env):
         self.n_assets = self.constituents_returns.shape[1]
         self.n_timesteps = self.constituents_returns.shape[0]
         self.current_timestep = 1
+        self.market_conditions = 9
 
         # Calculate thresholds to derive market conditions
         self.vol_low_threshold = np.array(self.constituents_volatility.quantile(0.33))
@@ -36,22 +37,22 @@ class PortfolioEnv(gym.Env):
         self.current_portfolio = np.full((self.n_assets,), 1/self.n_assets)  # Start with equally weighted portfolio
         self.current_market_condition = self.get_market_condition()
 
-        # Investor behaviour parameters, set of phi values is {0.1 to 1}
-        self.phi = phi # True risk profile
+        # Investor behaviour parameters, set of theta values is {0.1 to 1}
+        self.theta = theta # True risk profile
         self.r = r # Bounds size of investor mistakes about true risk profile
         self.K = 0.0008 / 21 # Opportunity cost of soliciting investor choice (converted to daily basis based on monthly trading days)
-        self.current_phi = 0 # Current estimate of true risk profile
+        self.current_theta = 0 # Current estimate of true risk profile
         self.n_solicited = 0 # Number of times investor is solicited
-        self.phi_values = []  # Store phi values for each step
+        self.theta_values = []  # Store theta values for each step
         
         # Investor shift in risk profile parameters:
-        self.shifted_phi = 0.4
+        self.shifted_theta = 0.4
         self.shifted_r = 0.1
         self.apply_shift = True
         self.timestep_shift = 1210
 
         # Define observation space based on set of market conditions
-        self.observation_space = gym.spaces.Discrete(9)
+        self.observation_space = gym.spaces.Discrete(self.market_conditions)
 
         # Define action space as a given portfolio allocation plus ask space to solicit investor
         self.action_space = gym.spaces.Box(low=0, high=1, shape=(self.n_assets + 1,), dtype=np.float32)
@@ -92,27 +93,27 @@ class PortfolioEnv(gym.Env):
     def simulate_investor_behaviour(self):
         self.n_solicited += 1 # Increase solicited count
         if self.apply_shift and self.current_timestep >= self.timestep_shift:
-            sampled_phi = np.random.normal(self.shifted_phi, self.shifted_r) # Apply shifted risk profile parameters
+            sampled_theta = np.random.normal(self.shifted_theta, self.shifted_r) # Apply shifted risk profile parameters
         else:
-            sampled_phi = np.random.normal(self.phi, self.r)  # Sample above mean phi with std of r
-        sampled_phi = max(min(sampled_phi, 1), 0.1) # Clip at boundaries of valid phi value
+            sampled_theta = np.random.normal(self.theta, self.r)  # Sample above mean theta with std of r
+        sampled_theta = max(min(sampled_theta, 1), 0.1) # Clip at boundaries of valid theta value
             
-        return sampled_phi
+        return sampled_theta
 
     def calculate_reward(self, ask_investor):
-        # If investor was asked update estimate of phi
+        # If investor was asked update estimate of theta
         if ask_investor:
             # Generate risk profile corresponding to portfolio using IPO
-            inferred_phi = inverse_MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep+1, :], self.current_portfolio)
+            inferred_theta = inverse_MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep+1, :], self.current_portfolio)
 
-            # Update estimate of phi
+            # Update estimate of theta
             if self.n_solicited == 1:
-                self.current_phi = inferred_phi
+                self.current_theta = inferred_theta
             else:
-                self.current_phi = self.current_phi + 1/self.n_solicited * (inferred_phi - self.current_phi)
+                self.current_theta = self.current_theta + 1/self.n_solicited * (inferred_theta - self.current_theta)
 
-        # Calculate reward using mean-variance utility function and current estimate of phi
-        reward = mean_variance_utility(self.constituents_returns.iloc[:self.current_timestep+1, :], self.current_portfolio, self.current_phi)
+        # Calculate reward using mean-variance utility function and current estimate of theta
+        reward = mean_variance_utility(self.constituents_returns.iloc[:self.current_timestep+1, :], self.current_portfolio, self.current_theta)
 
         # If investor was asked reduce reward
         if ask_investor:
@@ -130,10 +131,10 @@ class PortfolioEnv(gym.Env):
 
         if ask_investor:
             # Simulate current investor risk profile
-            investor_phi = self.simulate_investor_behaviour()
+            investor_theta = self.simulate_investor_behaviour()
 
             # Generate portfolio corresponding to risk profile using MVO optimisation
-            portfolio_choice = MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep+1, :], investor_phi)
+            portfolio_choice = MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep+1, :], investor_theta)
 
         # Normalize the portfolio weights to sum to 1
         normalized_portfolio_choice = normalize_portfolio(portfolio_choice)
@@ -146,7 +147,7 @@ class PortfolioEnv(gym.Env):
         truncated = False # Episodes aren't being cut short
         info = {}
 
-        self.phi_values.append(self.current_phi)  # Append current_phi value for evaluation
+        self.theta_values.append(self.current_theta)  # Append current_theta value for evaluation
 
         return next_state, reward, terminated, truncated, info
 
@@ -156,18 +157,18 @@ class PortfolioEnv(gym.Env):
         if seed is not None:
             np.random.seed(seed)
 
-        # Write phi values to file at the end of an episode for evaluation
-        if self.phi_values:  # Check if list is not empty
-            phi_values_path = "project/data/phi_values.json"
+        # Write theta values to file at the end of an episode for evaluation
+        if self.theta_values:  # Check if list is not empty
+            theta_values_path = "project/data/theta_values.json"
             # Check if the file exists and is not empty
-            if not os.path.exists(phi_values_path) or os.path.getsize(phi_values_path) == 0:
-                with open(phi_values_path, 'w') as f:
-                    json.dump(self.phi_values, f)
-                print(f"Phi values saved to {phi_values_path}")
-            self.phi_values = []  # Reset phi values for the next episode
+            if not os.path.exists(theta_values_path) or os.path.getsize(theta_values_path) == 0:
+                with open(theta_values_path, 'w') as f:
+                    json.dump(self.theta_values, f)
+                print(f"theta values saved to {theta_values_path}")
+            self.theta_values = []  # Reset theta values for the next episode
 
         self.n_solicited = 0 # Reset count investor solicited
-        self.current_phi = 0 # Reset phi
+        self.current_theta = 0 # Reset theta
         self.current_timestep = 1200 # Reset timestep
         self.current_portfolio = np.full((self.n_assets,), 1/self.n_assets) # Reset to equally weighted portfolio
         self.current_market_condition = self.get_market_condition()

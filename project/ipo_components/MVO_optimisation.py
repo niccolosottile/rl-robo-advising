@@ -11,7 +11,7 @@ def MVO_optimisation(constituents_returns, r):
     A = np.vstack((A_upper, A_lower))
     A = np.vstack([A, np.eye(n_assets)]) # Add non-negativity constraints for each portfolio weight
 
-    b = np.array([0.999, -1.001]) # Bounds for linear constraints
+    b = np.array([0.999, -1]) # Bounds for linear constraints
     b = np.hstack([b, np.zeros(n_assets)]) # Bounds for non-negativity constraints
 
     L = 1200 # Lookback window

@@ -159,5 +159,5 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 project/models/model.zip
-project/data/phi_values.json
-project/data/ipo_phi_values.json
+project/data/theta_values.json
+project/data/ipo_theta_values.json

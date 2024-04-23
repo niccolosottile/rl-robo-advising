@@ -12,7 +12,7 @@ import json
 # File paths
 acwi_file = 'project/data/ACWI.csv'
 aggu_file = 'project/data/AGGU.L.csv'
-phi_values_path = "project/data/ipo_phi_values.json"
+theta_values_path = "project/data/ipo_theta_values.json"
 
 # Extracting constituents returns 253-day rolling periods
 constituents_returns = load_and_prepare_returns(acwi_file, aggu_file)
@@ -20,9 +20,9 @@ constituents_returns = load_and_prepare_returns(acwi_file, aggu_file)
 n_time_steps = constituents_returns.values.shape[0]
 
 # Investor behaviour parameters
-phi = 0.2
+theta = 0.2
 r = 0.1
-shifted_phi = 0.4
+shifted_theta = 0.4
 shifted_r = 0.1
 apply_shift = False
 timestep_shift = 1210
@@ -35,37 +35,37 @@ learning_rate = 100
 def simulate_investor_behaviour(current_timestep):
     """Simulates investor behaviour according to normal distribution"""
     if apply_shift and current_timestep >= timestep_shift:
-        sampled_phi = np.random.normal(shifted_phi, shifted_r) # Apply shifted risk profile parameters
+        sampled_theta = np.random.normal(shifted_theta, shifted_r) # Apply shifted risk profile parameters
     else:
-        sampled_phi = np.random.normal(phi, r)  # Sample above mean phi with std of r
-    sampled_phi = max(min(sampled_phi, 1), 0.1) # Clip at boundaries of valid phi value
+        sampled_theta = np.random.normal(theta, r)  # Sample above mean theta with std of r
+    sampled_theta = max(min(sampled_theta, 1), 0.1) # Clip at boundaries of valid theta value
         
-    return sampled_phi
+    return sampled_theta
 
 # Generate all allocations based on simulated investor behaviour
 all_allocations = []
 
 for t in range(1200, n_time_steps):
-    current_phi = simulate_investor_behaviour(t)
+    current_theta = simulate_investor_behaviour(t)
     
     if t == 1200:
-        all_allocations = forward_problem(constituents_returns, current_phi)[:t+1]
+        all_allocations = forward_problem(constituents_returns, current_theta)[:t+1]
     else:
-        current_allocations = forward_problem(constituents_returns.iloc[:t+1, :], current_phi, only_last=True)[-1]
+        current_allocations = forward_problem(constituents_returns.iloc[:t+1, :], current_theta, only_last=True)[-1]
         all_allocations.append(current_allocations)
 
-phi_values = inverse_problem(constituents_returns, all_allocations, r_g, M, learning_rate)[:timestep_shift - 1200]
+theta_values = inverse_problem(constituents_returns, all_allocations, r_g, M, learning_rate)[:timestep_shift - 1200]
 
 # Compute incremental average
-avg_phi_values = []
-for i in range(len(phi_values)):
-    avg_phi_values.append(np.mean(phi_values[:i+1]))
+avg_theta_values = []
+for i in range(len(theta_values)):
+    avg_theta_values.append(np.mean(theta_values[:i+1]))
 
 if not apply_shift:
     for t in range(timestep_shift, n_time_steps):
-        phi_values.append(phi_values[-1])
+        theta_values.append(theta_values[-1])
 
-# Write phi values to data file
-with open(phi_values_path, 'w') as f:
-    json.dump(phi_values, f)
-print(f"Phi values saved to {phi_values_path}")
+# Write theta values to data file
+with open(theta_values_path, 'w') as f:
+    json.dump(theta_values, f)
+print(f"theta values saved to {theta_values_path}")

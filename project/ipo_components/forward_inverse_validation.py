@@ -18,8 +18,8 @@ for r_original in risk_profiles:
     error = np.abs(r_original - r_estimated)
     errors.append(error)
 
-    print(f"Original r: {r_original:.2f}, Estimated r: {r_estimated:.2f}, Error: {error:.2f}")
+    print(f"Original r: {r_original:.6f}, Estimated r: {r_estimated:.6f}, Error: {error:.6f}")
 
 mean_error = np.mean(errors)
 
-print(f"Mean Error across all tested r values: {mean_error:.2f}")
+print(f"Mean Error across all tested r values: {mean_error:.6f}")
