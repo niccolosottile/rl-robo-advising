@@ -8,8 +8,7 @@ import json
 import os
 
 # Need to change it such that the investor behaviour depends on the market condition
-# Need to change it so that market conndition depends on returns
-# Need to develop offline and online training methodologies based on pseudocode written 
+# Need to develop offline and online training methodologies
 class PortfolioEnv(gym.Env):
     metadata = {'render_modes': ['human']}
 
@@ -28,8 +27,10 @@ class PortfolioEnv(gym.Env):
         self.current_timestep = 1
 
         # Calculate thresholds to derive market conditions
-        self.low_threshold = np.array(self.constituents_volatility.quantile(0.33))
-        self.high_threshold = np.array(self.constituents_volatility.quantile(0.66))
+        self.vol_low_threshold = np.array(self.constituents_volatility.quantile(0.33))
+        self.vol_high_threshold = np.array(self.constituents_volatility.quantile(0.66))
+        self.ret_low_threshold = np.array(self.constituents_returns.quantile(0.33))
+        self.ret_high_threshold = np.array(self.constituents_returns.quantile(0.66))
 
         # State representations
         self.current_portfolio = np.full((self.n_assets,), 1/self.n_assets)  # Start with equally weighted portfolio
@@ -50,7 +51,7 @@ class PortfolioEnv(gym.Env):
         self.timestep_shift = 1210
 
         # Define observation space based on set of market conditions
-        self.observation_space = gym.spaces.Discrete(3)
+        self.observation_space = gym.spaces.Discrete(9)
 
         # Define action space as a given portfolio allocation plus ask space to solicit investor
         self.action_space = gym.spaces.Box(low=0, high=1, shape=(self.n_assets + 1,), dtype=np.float32)
@@ -59,20 +60,32 @@ class PortfolioEnv(gym.Env):
         return self.current_market_condition
 
     def get_market_condition(self):
+        # Volatility based market condition
         current_volatilities = self.constituents_volatility.iloc[self.current_timestep] # Extract asset volatilities at current timestep
         weighted_volatility = np.dot(self.current_portfolio, current_volatilities) # Calculate weighted portfolio volatility
+        vol_low_threshold = np.dot(self.current_portfolio, self.vol_low_threshold)
+        vol_high_threshold = np.dot(self.current_portfolio, self.vol_high_threshold)
 
-        # Calculate weighted portfolio thresholds
-        low_threshold_weighted = np.dot(self.current_portfolio, self.low_threshold)
-        high_threshold_weighted = np.dot(self.current_portfolio, self.high_threshold)
+        vol_condition = (
+            0 if weighted_volatility <= vol_low_threshold
+            else 2 if weighted_volatility > vol_high_threshold
+            else 1
+        )
         
-        # Determine market condition
-        if weighted_volatility <= low_threshold_weighted:
-            market_condition = 0 #'low'
-        elif weighted_volatility > high_threshold_weighted:
-            market_condition = 2 #'high'
-        else:
-            market_condition = 1 #'medium'
+        # Returns based market condition
+        current_returns = self.constituents_returns.iloc[self.current_timestep]
+        weighted_returns = np.dot(self.current_portfolio, current_returns)
+        ret_low_threshold = np.dot(self.current_portfolio, self.ret_low_threshold)
+        ret_high_threshold = np.dot(self.current_portfolio, self.ret_high_threshold)
+
+        ret_condition = (
+            0 if weighted_returns <= ret_low_threshold
+            else 2 if weighted_returns > ret_high_threshold
+            else 1
+        )
+
+        # Combine the two conditions into a single market condition index
+        market_condition = 3 * ret_condition + vol_condition
         
         return market_condition
 
