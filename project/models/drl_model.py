@@ -17,8 +17,9 @@ class DRLAgent:
             constituents_returns = self.constituents_returns, 
             consitutents_volatility = self.constituents_volatility,                     
             lookback_window_size = 1200,
-            theta=0.2,
             r=0.1,
+            max_theta=1,
+            min_theta=0.1
             )
 
         # Initialize PPO model with a Multi-Layer Perceptron (MLP) policy
@@ -115,21 +116,17 @@ if __name__ == "__main__":
     # Load the theta values for evaluation
     agent.load_theta_values(theta_values_path)
     
-    # Load the dynamic agent's theta values
-    dynamic_theta_values = agent.theta_values
+    # Load the theta values
+    theta_values = agent.theta_values
 
     # Create a plot with specified figure size
     plt.figure(figsize=(10, 6))
 
-    # Plotting the estimated risk profile from dynamic agent
-    plt.plot(dynamic_theta_values, label='Estimated Risk Profile')
+    # Plotting the estimated risk profile from agent
+    plt.plot(theta_values, label='Estimated Risk Profile')
 
     # Adding two horizontal lines to represent the change in the true risk profile
-    plt.axhline(y=0.2, color='r', linestyle='-', xmin=0, xmax=0.125, label='True Risk Profile until timestep 10')
-    plt.axhline(y=0.4, color='r', linestyle='-', xmin=0.125, xmax=1, label='True Risk Profile after timestep 10')
-
-    # Mark the change point
-    plt.axvline(x=10, color='g', linestyle='--', label='Change in Risk Profile')
+    plt.axhline(y=0.55, color='r', linestyle='-', xmin=0, xmax=0.125, label='True Risk Profile') # was fixed for all states now it depends on each state.
 
     # Setting labels and title
     plt.xlabel('Timestep')

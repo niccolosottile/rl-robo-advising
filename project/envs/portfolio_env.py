@@ -7,12 +7,11 @@ from project.utils.others import normalize_portfolio
 import json
 import os
 
-# Need to change it such that the investor behaviour depends on the market condition
 # Need to develop offline and online training methodologies
 class PortfolioEnv(gym.Env):
     metadata = {'render_modes': ['human']}
 
-    def __init__(self, constituents_prices, constituents_returns, consitutents_volatility, lookback_window_size, theta, r):
+    def __init__(self, constituents_prices, constituents_returns, consitutents_volatility, lookback_window_size, r, max_theta, min_theta):
         super(PortfolioEnv, self).__init__()
 
         # Historical data from preprocessed datasets
@@ -37,19 +36,17 @@ class PortfolioEnv(gym.Env):
         self.current_portfolio = np.full((self.n_assets,), 1/self.n_assets)  # Start with equally weighted portfolio
         self.current_market_condition = self.get_market_condition()
 
-        # Investor behaviour parameters, set of theta values is {0.1 to 1}
-        self.theta = theta # True risk profile
+        # Investor behaviour parameters
         self.r = r # Bounds size of investor mistakes about true risk profile
-        self.K = 0.0008 / 21 # Opportunity cost of soliciting investor choice (converted to daily basis based on monthly trading days)
-        self.current_theta = 0 # Current estimate of true risk profile
-        self.n_solicited = 0 # Number of times investor is solicited
+        self.max_theta = max_theta
+        self.min_theta = min_theta
+        self.base_theta = (max_theta - min_theta) / 2 + min_theta
+        self.theta_bounds = self.initialize_theta_bounds()
+        self.theta = np.array([np.mean(bounds) for bounds in self.theta_bounds])
+        self.current_theta = np.array([self.base_theta for _ in range(self.market_conditions)]) # Current estimates of true risk profile
+        self.n_solicited = np.zeros(self.market_conditions)  # Count solicitations per market condition
+        self.K = 0.0008 / 21 # Opportunity cost of soliciting investor choice (converted to daily basis from monthly basis)
         self.theta_values = []  # Store theta values for each step
-        
-        # Investor shift in risk profile parameters:
-        self.shifted_theta = 0.4
-        self.shifted_r = 0.1
-        self.apply_shift = True
-        self.timestep_shift = 1210
 
         # Define observation space based on set of market conditions
         self.observation_space = gym.spaces.Discrete(self.market_conditions)
@@ -59,6 +56,13 @@ class PortfolioEnv(gym.Env):
 
     def get_state(self):
         return self.current_market_condition
+
+    def initialize_theta_bounds(self):
+        # Define lower and upper bounds for each market condition
+        # Example bounds could be defined based on empirical data or expert assessment
+        lower_bounds = np.linspace(0.1, 0.5, self.market_conditions)  # Example lower bounds
+        upper_bounds = np.linspace(0.5, 1.0, self.market_conditions)  # Example upper bounds
+        return np.vstack((lower_bounds, upper_bounds)).T
 
     def get_market_condition(self):
         # Volatility based market condition
@@ -91,29 +95,41 @@ class PortfolioEnv(gym.Env):
         return market_condition
 
     def simulate_investor_behaviour(self):
-        self.n_solicited += 1 # Increase solicited count
-        if self.apply_shift and self.current_timestep >= self.timestep_shift:
-            sampled_theta = np.random.normal(self.shifted_theta, self.shifted_r) # Apply shifted risk profile parameters
-        else:
-            sampled_theta = np.random.normal(self.theta, self.r)  # Sample above mean theta with std of r
-        sampled_theta = max(min(sampled_theta, 1), 0.1) # Clip at boundaries of valid theta value
+        # Get current market condition
+        market_condition = self.current_market_condition
+
+        # Assume behavior varies normally around the true risk profile
+        theta_s = self.theta[market_condition]
+
+        # Sample about mean theta with std of r
+        sampled_theta = np.random.normal(theta_s, self.r)
+
+        # Increase solicited count      
+        self.n_solicited[market_condition] += 1
+
+        # Clip at boundaries of valid theta value
+        sampled_theta = max(min(sampled_theta, self.max_theta), self.min_theta)
             
         return sampled_theta
 
     def calculate_reward(self, ask_investor):
+        # Get current market condition
+        market_condition = self.current_market_condition
+
         # If investor was asked update estimate of theta
         if ask_investor:
             # Generate risk profile corresponding to portfolio using IPO
             inferred_theta = inverse_MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep+1, :], self.current_portfolio)
 
             # Update estimate of theta
-            if self.n_solicited == 1:
-                self.current_theta = inferred_theta
+            if self.n_solicited[market_condition] == 1:
+                self.current_theta[market_condition] = inferred_theta
             else:
-                self.current_theta = self.current_theta + 1/self.n_solicited * (inferred_theta - self.current_theta)
+                current_theta = self.current_theta[market_condition]
+                self.current_theta[market_condition] = current_theta + 1/self.n_solicited[market_condition] * (inferred_theta - current_theta)
 
         # Calculate reward using mean-variance utility function and current estimate of theta
-        reward = mean_variance_utility(self.constituents_returns.iloc[:self.current_timestep+1, :], self.current_portfolio, self.current_theta)
+        reward = mean_variance_utility(self.constituents_returns.iloc[:self.current_timestep+1, :], self.current_portfolio, self.current_theta[market_condition])
 
         # If investor was asked reduce reward
         if ask_investor:
@@ -140,14 +156,14 @@ class PortfolioEnv(gym.Env):
         normalized_portfolio_choice = normalize_portfolio(portfolio_choice)
 
         self.current_portfolio = normalized_portfolio_choice # Update current portfolio
+        reward = self.calculate_reward(ask_investor) # Calculate reward
         self.current_market_condition = self.get_market_condition() # Retrieve new market condition
         next_state = self.get_state() # Retrieve next state
-        reward = self.calculate_reward(ask_investor) # Calculate reward
         terminated = self.current_timestep >= self.n_timesteps - 1 # Check if episode has ended
         truncated = False # Episodes aren't being cut short
         info = {}
 
-        self.theta_values.append(self.current_theta)  # Append current_theta value for evaluation
+        self.theta_values.append(self.current_theta.tolist())  # Append current_theta value for evaluation
 
         return next_state, reward, terminated, truncated, info
 
@@ -167,8 +183,8 @@ class PortfolioEnv(gym.Env):
                 print(f"theta values saved to {theta_values_path}")
             self.theta_values = []  # Reset theta values for the next episode
 
-        self.n_solicited = 0 # Reset count investor solicited
-        self.current_theta = 0 # Reset theta
+        self.current_theta = np.array([self.base_theta for _ in range(self.market_conditions)])
+        self.n_solicited = np.zeros(self.market_conditions)
         self.current_timestep = 1200 # Reset timestep
         self.current_portfolio = np.full((self.n_assets,), 1/self.n_assets) # Reset to equally weighted portfolio
         self.current_market_condition = self.get_market_condition()
