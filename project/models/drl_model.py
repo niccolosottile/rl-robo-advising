@@ -87,7 +87,7 @@ class DRLAgent:
     def load_theta_values(self, path):
         """Loads theta values from the specified path."""
         with open(path, 'r') as f:
-            self.theta_values = json.load(f)
+            self.theta_values = np.array(json.load(f))
         print(f"theta values loaded from {path}")
 
 if __name__ == "__main__":
@@ -106,7 +106,7 @@ if __name__ == "__main__":
     train_model = True # Option to train or load already trained model
 
     if train_model:
-        agent.train(total_timesteps=1000)
+        agent.train(total_timesteps=100000)
         # Save the trained model
         agent.save_model(model_path)
     else:
@@ -120,21 +120,27 @@ if __name__ == "__main__":
     theta_values = agent.theta_values
 
     # Create a plot with specified figure size
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(15, 8))
 
-    # Plotting the estimated risk profile from agent
-    plt.plot(theta_values, label='Estimated Risk Profile')
+    # Define a color palette
+    colours = plt.cm.nipy_spectral(np.linspace(0, 1, theta_values.shape[1]))
 
-    # Adding two horizontal lines to represent the change in the true risk profile
-    plt.axhline(y=0.55, color='r', linestyle='-', xmin=0, xmax=0.125, label='True Risk Profile') # was fixed for all states now it depends on each state.
+    # Plotting the estimated risk profile for each market condition
+    for idx in range(theta_values.shape[1]):
+        plt.plot(theta_values[:, idx], label=f'Estimated Risk Profile Market {idx+1}' if idx == 0 else "_nolegend_", color=colours[idx])
+
+    # Adding horizontal lines to represent the true risk profile for each market condition
+    true_risk_profiles = [0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90]
+    for idx, profile in enumerate(true_risk_profiles):
+        plt.axhline(y=profile, linestyle='--', label=f'Risk Profile Market {idx+1}', color=colours[idx])
 
     # Setting labels and title
     plt.xlabel('Timestep')
     plt.ylabel('Risk Profile (theta)')
-    plt.title('Convergence of Estimated Risk Profile Over Training Timesteps')
+    plt.title('Convergence of Estimated Risk Profile Over Training Timesteps by Market Condition')
 
-    # Adding legend to the plot
-    plt.legend()
+    # Adding legend to the plot, adjusting location to avoid overlap
+    plt.legend(loc='lower right')
 
     # Display the plot
     plt.show()

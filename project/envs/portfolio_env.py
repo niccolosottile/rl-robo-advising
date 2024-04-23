@@ -42,7 +42,7 @@ class PortfolioEnv(gym.Env):
         self.min_theta = min_theta
         self.base_theta = (max_theta - min_theta) / 2 + min_theta
         self.theta_bounds = self.initialize_theta_bounds()
-        self.theta = np.array([np.mean(bounds) for bounds in self.theta_bounds])
+        self.theta = np.array([0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90]) #np.array([np.mean(bounds) for bounds in self.theta_bounds])
         self.current_theta = np.array([self.base_theta for _ in range(self.market_conditions)]) # Current estimates of true risk profile
         self.n_solicited = np.zeros(self.market_conditions)  # Count solicitations per market condition
         self.K = 0.0008 / 21 # Opportunity cost of soliciting investor choice (converted to daily basis from monthly basis)
