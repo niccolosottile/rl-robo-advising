@@ -15,11 +15,11 @@ def inverse_MVO_optimisation(constituents_returns, portfolio_allocations):
     b = np.array([0.999, -1]) # Bounds for sum of portfolio weights
     b = np.hstack([b, np.zeros(n_assets)]) # Bounds for non-negativity constraints
 
-    L = 1200 # Lookback window
+    #L = 1200 # Lookback window
     M = 1 # Number used to bound u and A @ x - b
 
     # Adjust indeces to use lookback window L for calculating mean returns and covariance
-    start_index = max(0, n_time_steps - L)
+    start_index = 0 #max(0, n_time_steps - L)
     end_index = n_time_steps
 
     # Calculate return mean and covariance within the lookback window

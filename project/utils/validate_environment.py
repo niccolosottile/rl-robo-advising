@@ -2,16 +2,16 @@ import numpy as np
 
 # Assuming PortfolioEnv is already imported or defined in your context
 from project.envs.portfolio_env import PortfolioEnv
-from project.utils.data_loader import load_and_prepare_prices, load_and_prepare_returns, load_and_prepare_volatility
+from project.utils.data_loader import load_and_filter_data
 
 def validate_environment():
     # Instantiate your environment
+    constituents_prices, constituents_returns, constituents_volatility = load_and_filter_data('project/data/ACWI.csv', 'project/data/AGGU.L.csv')
+
     env = PortfolioEnv(
-        constituents_prices=load_and_prepare_prices('project/data/ACWI.csv', 'project/data/AGGU.L.csv'),
-        constituents_returns=load_and_prepare_returns('project/data/ACWI.csv', 'project/data/AGGU.L.csv'), 
-        consitutents_volatility=load_and_prepare_volatility('project/data/ACWI.csv', 'project/data/AGGU.L.csv'), 
-        lookback_window_size=100, 
-        use_portfolio=True
+        constituents_prices=constituents_prices,
+        constituents_returns=constituents_returns,
+        consitutents_volatility=constituents_volatility,
     )
 
     # Reset the environment to start

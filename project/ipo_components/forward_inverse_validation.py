@@ -3,12 +3,12 @@ import cvxpy as cp
 
 from project.ipo_components.MVO_optimisation import MVO_optimisation
 from project.ipo_components.inverse_MVO_optimisation import inverse_MVO_optimisation
-from project.utils.data_loader import load_and_prepare_returns
+from project.utils.data_loader import load_and_filter_data
 
 # Running Forward-Inverse Validation
-constituents_returns = load_and_prepare_returns('project/data/ACWI.csv', 'project/data/AGGU.L.csv')
+_, constituents_returns, _ = load_and_filter_data('project/data/ACWI.csv', 'project/data/AGGU.L.csv')
 n_time_steps = constituents_returns.shape[0]
-risk_profiles = np.linspace(0.1, 1, 10)  # Range of risk profile coefficients
+risk_profiles = np.linspace(0.1, 3, 10)  # Range of risk profile coefficients
 
 errors = []
 

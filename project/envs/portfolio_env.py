@@ -7,6 +7,7 @@ from project.utils.others import normalize_portfolio
 import json
 import os
 
+# Need to figure out how to run it on all timesteps
 # Need to develop offline and online training methodologies
 class PortfolioEnv(gym.Env):
     metadata = {'render_modes': ['human']}
@@ -23,7 +24,7 @@ class PortfolioEnv(gym.Env):
         self.lookback_window_size = lookback_window_size # Affects lookback window L of PO and IPO agents
         self.n_assets = self.constituents_returns.shape[1]
         self.n_timesteps = self.constituents_returns.shape[0]
-        self.current_timestep = 1
+        self.current_timestep = 0
         self.market_conditions = 9
 
         # Calculate thresholds to derive market conditions
@@ -185,7 +186,7 @@ class PortfolioEnv(gym.Env):
 
         self.current_theta = np.array([self.base_theta for _ in range(self.market_conditions)])
         self.n_solicited = np.zeros(self.market_conditions)
-        self.current_timestep = 1200 # Reset timestep
+        self.current_timestep = 0 # Reset timestep
         self.current_portfolio = np.full((self.n_assets,), 1/self.n_assets) # Reset to equally weighted portfolio
         self.current_market_condition = self.get_market_condition()
         info = {}

@@ -1,7 +1,7 @@
 import numpy as np
 from stable_baselines3 import PPO
 from project.envs.portfolio_env import PortfolioEnv
-from project.utils.data_loader import load_and_prepare_prices, load_and_prepare_returns, load_and_prepare_volatility
+from project.utils.data_loader import load_and_filter_data
 import matplotlib.pyplot as plt
 import json
 
@@ -31,7 +31,8 @@ class DRLAgent:
         self.model.learn(total_timesteps=total_timesteps)
         print("Training completed.")
 
-    def evaluate(self, num_episodes=10, true_risk_profile=0.5):
+    def evaluate(self, num_episodes=10):
+        true_risk_profile = 0.5
         total_rewards = []
         theta_values = []
         theta_deviations = []
@@ -91,12 +92,8 @@ class DRLAgent:
         print(f"theta values loaded from {path}")
 
 if __name__ == "__main__":
-    # Extracting constituents prices
-    constituents_prices = load_and_prepare_prices('project/data/ACWI.csv', 'project/data/AGGU.L.csv')
-    # Extracting constituents returns 253-day rolling periods
-    constituents_returns = load_and_prepare_returns('project/data/ACWI.csv', 'project/data/AGGU.L.csv')
-    # Extracting constituents volatility
-    constituents_volatility = load_and_prepare_volatility('project/data/ACWI.csv', 'project/data/AGGU.L.csv')
+    # Extracting prices, returns, and volatility data
+    constituents_prices, constituents_returns, constituents_volatility = load_and_filter_data('project/data/ACWI.csv', 'project/data/AGGU.L.csv')
 
     # Initialise, train, and evaluate DRL agent
     agent = DRLAgent(constituents_prices, constituents_returns, constituents_volatility)

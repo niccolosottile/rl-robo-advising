@@ -5,7 +5,7 @@
 import numpy as np
 import pandas as pd
 from itertools import product
-from project.utils.data_loader import load_and_prepare_returns
+from project.utils.data_loader import load_and_filter_data
 from project.ipo_agent.inverse_problem import inverse_problem
 from project.ipo_agent.forward_problem import forward_problem
 
@@ -14,7 +14,7 @@ acwi_file = 'project/data/ACWI.csv'
 aggu_file = 'project/data/AGGU.L.csv'
 
 # Extracting constituents returns 253-day rolling periods
-constituents_returns = load_and_prepare_returns(acwi_file, aggu_file)
+_, constituents_returns, _ = load_and_filter_data(acwi_file, aggu_file)
 
 # Define the grid for hyperparameter tuning
 M_values = [100, 500, 1000, 5000, 10000]
