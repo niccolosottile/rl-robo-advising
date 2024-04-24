@@ -98,12 +98,19 @@ for condition, returns in aggregated_returns.items():
 #print(valid_r_ranges)
 
 # Overview of conditions:
-# Condition 0 (0*3 + 0): Low Returns, Low Volatility
-# Condition 1 (0*3 + 1): Low Returns, Medium Volatility
-# Condition 2 (0*3 + 2): Low Returns, High Volatility
-# Condition 3 (1*3 + 0): Medium Returns, Low Volatility
-# Condition 4 (1*3 + 1): Medium Returns, Medium Volatility
-# Condition 5 (1*3 + 2): Medium Returns, High Volatility
-# Condition 6 (2*3 + 0): High Returns, Low Volatility
-# Condition 7 (2*3 + 1): High Returns, Medium Volatility
-# Condition 8 (2*3 + 2): High Returns, High Volatility
+# Condition 0 (0*4 + 0): Low Returns, Low Volatility
+# Condition 1 (0*4 + 1): Low Returns, Medium-Low Volatility
+# Condition 2 (0*4 + 2): Low Returns, Medium-High Volatility
+# Condition 3 (0*4 + 3): Low Returns, High Volatility
+# Condition 4 (1*4 + 0): Medium-Low Returns, Low Volatility
+# Condition 5 (1*4 + 1): Medium-Low Returns, Medium-Low Volatility
+# Condition 6 (1*4 + 2): Medium-Low Returns, Medium-High Volatility
+# Condition 7 (1*4 + 3): Medium-Low Returns, High Volatility
+# Condition 8 (2*4 + 0): Medium-High Returns, Low Volatility
+# Condition 9 (2*4 + 1): Medium-High Returns, Medium-Low Volatility
+# Condition 10 (2*4 + 2): Medium-High Returns, Medium-High Volatility
+# Condition 11 (2*4 + 3): Medium-High Returns, High Volatility
+# Condition 12 (3*4 + 0): High Returns, Low Volatility
+# Condition 13 (3*4 + 1): High Returns, Medium-Low Volatility
+# Condition 14 (3*4 + 2): High Returns, Medium-High Volatility
+# Condition 15 (3*4 + 3): High Returns, High Volatility

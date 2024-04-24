@@ -17,9 +17,9 @@ class DRLAgent:
             constituents_returns = self.constituents_returns, 
             consitutents_volatility = self.constituents_volatility,                     
             lookback_window_size = 1200,
-            r=0.1,
-            max_theta=1,
-            min_theta=0.1
+            r=0.05,
+            max_theta=0.17,
+            min_theta=0.01
             )
 
         # Initialize PPO model with a Multi-Layer Perceptron (MLP) policy

@@ -7,7 +7,6 @@ from project.utils.others import normalize_portfolio
 import json
 import os
 
-# Need to develop offline and online training methodologies
 class PortfolioEnv(gym.Env):
     metadata = {'render_modes': ['human']}
 
@@ -85,13 +84,14 @@ class PortfolioEnv(gym.Env):
 
         return market_conditions
 
-    def initialize_theta_bounds(self):
+    def initialize_theta_bounds_and_conditions(self):
         # Risk propile lower and upper bounds defined for each market condition empirically (see risk_profile_search_conditions.py)
-        distinct_conditions = {10: (0.01, 0.91), 14: (0.01, 0.8), 15: (0.01, 0.56),
-                               11: (0.01, 0.47), 13: (0.01, 0.33), 9: (0.01, 0.27)}
+        # Adding lower bounds where really it is 0.01 to make risk profile converge to upper bound
+        distinct_conditions = {10: (0.8, 0.91), 14: (0.56, 0.8), 15: (0.4, 0.56),
+                               6: (0.27, 0.4), 1: (0.17, 0.27), 9: (0.01, 0.17)}
 
         # Merges defined based on statistical significancy of market condition (see risk_profile_search_conditions.py)
-        merged_conditions = {1: 9, 2: 9, 3: 9, 4: 9, 5: 9, 6: 9, 7: 9, 8: 9, 12: 9}
+        merged_conditions = {2: 6, 3: 6, 4: 9, 5: 9, 7: 6, 8: 9, 11: 6, 12: 9, 13: 1}
 
         # Calculate market conditions
         market_conditions = self.calculate_market_conditions()
