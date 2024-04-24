@@ -30,7 +30,7 @@ def find_valid_ranges_over_time(constituents_returns, n_time_steps):
     # Dictionary to hold the range of valid r values for each timestep
     valid_r_ranges = {}
 
-    for t in range(4000, n_time_steps):
+    for t in range(2745, n_time_steps):
         # Extract returns at timestep t
         constituents_returns_at_t = constituents_returns.iloc[:t+1, :]
         valid_r_range_at_t = find_valid_r_range_at_t(constituents_returns_at_t)

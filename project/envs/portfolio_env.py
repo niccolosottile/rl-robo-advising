@@ -23,8 +23,10 @@ class PortfolioEnv(gym.Env):
         self.lookback_window_size = lookback_window_size # Affects lookback window L of PO and IPO agents
         self.n_assets = self.constituents_returns.shape[1]
         self.n_timesteps = self.constituents_returns.shape[0]
-        self.current_timestep = 0
-        self.market_conditions = 9
+        self.current_timestep = 2745
+        theta_bounds, market_conditions = self.initialize_theta_bounds_and_conditions()
+        self.market_conditions =  market_conditions # Change to None to work with dynamic market conditions
+        self.n_market_conditions = len(self.market_conditions) if self.market_conditions else 9
 
         # Calculate thresholds to derive market conditions
         self.vol_low_threshold = np.array(self.constituents_volatility.quantile(0.33))
@@ -41,15 +43,15 @@ class PortfolioEnv(gym.Env):
         self.max_theta = max_theta
         self.min_theta = min_theta
         self.base_theta = (max_theta - min_theta) / 2 + min_theta
-        self.theta_bounds = self.initialize_theta_bounds()
-        self.theta = np.array([0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90]) #np.array([np.mean(bounds) for bounds in self.theta_bounds])
-        self.current_theta = np.array([self.base_theta for _ in range(self.market_conditions)]) # Current estimates of true risk profile
-        self.n_solicited = np.zeros(self.market_conditions)  # Count solicitations per market condition
+        self.theta_bounds = theta_bounds
+        self.theta = np.array([np.mean(bounds) for bounds in self.theta_bounds])
+        self.current_theta = np.array([self.base_theta for _ in range(self.n_market_conditions)]) # Current estimates of true risk profile
+        self.n_solicited = np.zeros(self.n_market_conditions)  # Count solicitations per market condition
         self.K = 0.0008 / 21 # Opportunity cost of soliciting investor choice (converted to daily basis from monthly basis)
         self.theta_values = []  # Store theta values for each step
 
         # Define observation space based on set of market conditions
-        self.observation_space = gym.spaces.Discrete(self.market_conditions)
+        self.observation_space = gym.spaces.Discrete(self.n_market_conditions)
 
         # Define action space as a given portfolio allocation plus ask space to solicit investor
         self.action_space = gym.spaces.Box(low=0, high=1, shape=(self.n_assets + 1,), dtype=np.float32)
@@ -57,35 +59,78 @@ class PortfolioEnv(gym.Env):
     def get_state(self):
         return self.current_market_condition
 
+    def calculate_market_conditions(self):
+        # Thresholds based on quantiles
+        vol_thresholds = [self.constituents_volatility.quantile(q) for q in [0.33, 0.66, 0.86]]
+        ret_thresholds = [self.constituents_returns.quantile(q) for q in [0.33, 0.66, 0.86]]
+
+        # Calculate conditions
+        market_conditions = []
+
+        for t in range(len(self.constituents_returns)):
+            vol = self.constituents_volatility.iloc[t]
+            ret = self.constituents_returns.iloc[t]
+
+            vol_condition = (0 if vol <= vol_thresholds[0] else
+                             3 if vol > vol_thresholds[2] else
+                             2 if vol > vol_thresholds[1] else 1)
+
+            ret_condition = (0 if ret <= ret_thresholds[0] else
+                             3 if ret > ret_thresholds[2] else
+                             2 if ret > ret_thresholds[1] else 1)
+
+            condition = 4 * ret_condition + vol_condition
+
+            market_conditions.append(condition)
+
+        return market_conditions
+
     def initialize_theta_bounds(self):
-        # Define lower and upper bounds for each market condition
-        # Example bounds could be defined based on empirical data or expert assessment
-        lower_bounds = np.linspace(0.1, 0.5, self.market_conditions)  # Example lower bounds
-        upper_bounds = np.linspace(0.5, 1.0, self.market_conditions)  # Example upper bounds
-        return np.vstack((lower_bounds, upper_bounds)).T
+        # Risk propile lower and upper bounds defined for each market condition empirically (see risk_profile_search_conditions.py)
+        distinct_conditions = {10: (0.01, 0.91), 14: (0.01, 0.8), 15: (0.01, 0.56),
+                               11: (0.01, 0.47), 13: (0.01, 0.33), 9: (0.01, 0.27)}
+
+        # Merges defined based on statistical significancy of market condition (see risk_profile_search_conditions.py)
+        merged_conditions = {1: 9, 2: 9, 3: 9, 4: 9, 5: 9, 6: 9, 7: 9, 8: 9, 12: 9}
+
+        # Calculate market conditions
+        market_conditions = self.calculate_market_conditions()
+
+        # Map each timestep to the corresponding or merged market condition
+        timestep_conditions = [merged_conditions.get(condition, condition) for condition in market_conditions]
+
+        # Create theta bounds for each condition to be used to simulate investor behaviour
+        theta_bounds = {condition: distinct_conditions.get(condition, (0.01, 0.17)) for condition in set(timestep_conditions)}
+
+        return theta_bounds, timestep_conditions
 
     def get_market_condition(self):
+        """Returns market condition based on investor's current portfolio allocation. """
+        # Uses empirically defined market conditions if defined
+        if self.market_conditions is not None:
+            return self.market_conditions[self.current_timestep]
+
         # Volatility based market condition
         current_volatilities = np.array(self.constituents_volatility.iloc[self.current_timestep]) # Extract asset volatilities at current timestep
-        #weighted_volatility = np.dot(self.current_portfolio, current_volatilities) # Calculate weighted portfolio volatility
-        #vol_low_threshold = np.dot(self.current_portfolio, self.vol_low_threshold)
-        #vol_high_threshold = np.dot(self.current_portfolio, self.vol_high_threshold)
+        weighted_volatility = np.dot(self.current_portfolio, current_volatilities) # Calculate weighted portfolio volatility
+        vol_low_threshold = np.dot(self.current_portfolio, self.vol_low_threshold)
+        vol_high_threshold = np.dot(self.current_portfolio, self.vol_high_threshold)
 
         vol_condition = (
-            0 if current_volatilities[0] <= self.vol_low_threshold[0]
-            else 2 if current_volatilities[0] > self.vol_high_threshold[0]
+            0 if weighted_volatility <= vol_low_threshold
+            else 2 if weighted_volatility > vol_high_threshold
             else 1
         )
         
         # Returns based market condition
         current_returns = np.array(self.constituents_returns.iloc[self.current_timestep])
-        #weighted_returns = np.dot(self.current_portfolio, current_returns)
-        #ret_low_threshold = np.dot(self.current_portfolio, self.ret_low_threshold)
-        #ret_high_threshold = np.dot(self.current_portfolio, self.ret_high_threshold)
+        weighted_returns = np.dot(self.current_portfolio, current_returns)
+        ret_low_threshold = np.dot(self.current_portfolio, self.ret_low_threshold)
+        ret_high_threshold = np.dot(self.current_portfolio, self.ret_high_threshold)
 
         ret_condition = (
-            0 if current_returns[0] <= self.ret_low_threshold[0]
-            else 2 if current_returns[0] > self.ret_high_threshold[0]
+            0 if weighted_returns <= ret_low_threshold
+            else 2 if weighted_returns > ret_high_threshold
             else 1
         )
 
@@ -108,7 +153,8 @@ class PortfolioEnv(gym.Env):
         self.n_solicited[market_condition] += 1
 
         # Clip at boundaries of valid theta value
-        sampled_theta = max(min(sampled_theta, self.max_theta), self.min_theta)
+        sampled_theta = max(min(sampled_theta, self.theta_bounds[market_condition][1]), self.theta_bounds[market_condition][0])
+        #sampled_theta = max(min(sampled_theta, self.max_theta), self.min_theta)
             
         return sampled_theta
 
@@ -185,7 +231,7 @@ class PortfolioEnv(gym.Env):
 
         self.current_theta = np.array([self.base_theta for _ in range(self.market_conditions)])
         self.n_solicited = np.zeros(self.market_conditions)
-        self.current_timestep = 0 # Reset timestep
+        self.current_timestep = 2745 # Reset timestep
         self.current_portfolio = np.full((self.n_assets,), 1/self.n_assets) # Reset to equally weighted portfolio
         self.current_market_condition = self.get_market_condition()
         info = {}

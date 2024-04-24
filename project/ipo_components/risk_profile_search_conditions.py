@@ -12,17 +12,19 @@ def calculate_market_conditions(constituents_returns, constituents_volatility, v
         
         vol_condition = (
             0 if vol[0] <= vol_thresholds[0]
+            else 3 if vol[0] > vol_thresholds[2]
             else 2 if vol[0] > vol_thresholds[1]
             else 1
         )
         
         ret_condition = (
             0 if ret[0] <= ret_thresholds[0]
+            else 3 if ret[0] > ret_thresholds[2]
             else 2 if ret[0] > ret_thresholds[1]
             else 1
         )
         
-        market_condition = 3 * ret_condition + vol_condition
+        market_condition = 4 * ret_condition + vol_condition
         market_conditions.append(market_condition)
     
     return market_conditions
@@ -30,7 +32,7 @@ def calculate_market_conditions(constituents_returns, constituents_volatility, v
 def aggregate_returns_by_condition(constituents_returns, market_conditions):
     aggregated_returns = defaultdict(list)
     for t, condition in enumerate(market_conditions):
-        if t > 4000:  # Ensure there's at least one previous day to include
+        if t > 2745:  # Ensure there's at least one previous day to include
             aggregated_data = constituents_returns.iloc[:t+1, :]  # All data up to current day
             aggregated_returns[condition].append(aggregated_data)
     
@@ -72,16 +74,18 @@ _, constituents_returns, constituents_volatility = load_and_filter_data('project
 
 # Calculate thresholds for low, medium, and high for returns and volatility
 vol_low_threshold = np.array(constituents_volatility.quantile(0.33))
-vol_high_threshold = np.array(constituents_volatility.quantile(0.66))
+vol_medium_threshold = np.array(constituents_volatility.quantile(0.66))
+vol_high_threshold = np.array(constituents_volatility.quantile(0.86))
 ret_low_threshold = np.array(constituents_returns.quantile(0.33))
-ret_high_threshold = np.array(constituents_returns.quantile(0.66))
+ret_medium_threshold = np.array(constituents_returns.quantile(0.66))
+ret_high_threshold = np.array(constituents_returns.quantile(0.86))
 
-print("Volatility thresholds: ", vol_low_threshold, vol_high_threshold)
-print("Returns thresholds: ", ret_low_threshold, ret_high_threshold)
+print("Volatility thresholds: ", vol_low_threshold[0], vol_medium_threshold[0], vol_high_threshold[0])
+print("Returns thresholds: ", ret_low_threshold[0], ret_medium_threshold[0], ret_high_threshold[0])
 
 print(constituents_returns)
 
-market_conditions = calculate_market_conditions(constituents_returns, constituents_volatility, [vol_low_threshold[0], vol_high_threshold[0]], [ret_low_threshold[0], ret_high_threshold[0]])
+market_conditions = calculate_market_conditions(constituents_returns, constituents_volatility, [vol_low_threshold[0], vol_medium_threshold[0], vol_high_threshold[0]], [ret_low_threshold[0], ret_medium_threshold[0], ret_high_threshold[0]])
 aggregated_returns = aggregate_returns_by_condition(constituents_returns, market_conditions)
 
 valid_r_ranges = {}
@@ -92,3 +96,14 @@ for condition, returns in aggregated_returns.items():
     print(f"Market Condition {condition}: Valid risk profile range: {valid_r_range}")
 
 #print(valid_r_ranges)
+
+# Overview of conditions:
+# Condition 0 (0*3 + 0): Low Returns, Low Volatility
+# Condition 1 (0*3 + 1): Low Returns, Medium Volatility
+# Condition 2 (0*3 + 2): Low Returns, High Volatility
+# Condition 3 (1*3 + 0): Medium Returns, Low Volatility
+# Condition 4 (1*3 + 1): Medium Returns, Medium Volatility
+# Condition 5 (1*3 + 2): Medium Returns, High Volatility
+# Condition 6 (2*3 + 0): High Returns, Low Volatility
+# Condition 7 (2*3 + 1): High Returns, Medium Volatility
+# Condition 8 (2*3 + 2): High Returns, High Volatility
