@@ -7,7 +7,7 @@ def is_valid_portfolio(portfolio):
     # Ensure the portfolio is not a corner solution
     return np.all(portfolio > 0.01) and np.all(portfolio < 0.99)
 
-def find_valid_r_range_at_t(constituents_returns_at_t, r_min=0.01, r_max=30.0, step=0.1):
+def find_valid_r_range_at_t(constituents_returns_at_t, r_min=0.01, r_max=30.0, step=0.01):
     valid_r_lower = None
     valid_r_upper = None
 
@@ -30,7 +30,7 @@ def find_valid_ranges_over_time(constituents_returns, n_time_steps):
     # Dictionary to hold the range of valid r values for each timestep
     valid_r_ranges = {}
 
-    for t in range(1, n_time_steps):
+    for t in range(4000, n_time_steps):
         # Extract returns at timestep t
         constituents_returns_at_t = constituents_returns.iloc[:t+1, :]
         valid_r_range_at_t = find_valid_r_range_at_t(constituents_returns_at_t)
@@ -40,7 +40,7 @@ def find_valid_ranges_over_time(constituents_returns, n_time_steps):
 
     return valid_r_ranges
 
-a, constituents_returns, b = load_and_filter_data('project/data/ACWI.csv', 'project/data/AGGU.L.csv')
+_, constituents_returns, _ = load_and_filter_data('project/data/VTI.csv', 'project/data/^TNX.csv')
 n_time_steps = constituents_returns.shape[0]
 valid_r_ranges = find_valid_ranges_over_time(constituents_returns, n_time_steps)
 

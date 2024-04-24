@@ -37,6 +37,6 @@ def MVO_optimisation(constituents_returns, r):
     problem = cp.Problem(objective, constraints)
 
     # Solve the problem
-    problem.solve()
+    problem.solve(solver=cp.MOSEK)
 
     return x.value.tolist()

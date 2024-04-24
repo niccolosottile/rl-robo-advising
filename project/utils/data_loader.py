@@ -1,41 +1,44 @@
 import pandas as pd
 import numpy as np
 
-def load_and_filter_data(acwi_file, aggu_file):
+def load_and_filter_data(risky_file, risk_free_file):
     # Load data
-    acwi = pd.read_csv(acwi_file, index_col='Date', parse_dates=True)
-    aggu = pd.read_csv(aggu_file, index_col='Date', parse_dates=True)
+    risky = pd.read_csv(risky_file, index_col='Date', parse_dates=True)
+    risk_free = pd.read_csv(risk_free_file, index_col='Date', parse_dates=True)
 
     # Ensure the data is sorted by date
-    acwi.sort_index(inplace=True)
-    aggu.sort_index(inplace=True)
+    risky.sort_index(ascending=True, inplace=True)
+    risk_free.sort_index(ascending=True, inplace=True)
+
+    risky.dropna(inplace=True)
+    risk_free.dropna(inplace=True)
 
     # Calculate prices, returns, and volatilities 
-    combined_prices = pd.concat([acwi['Open'], aggu['Open']], axis=1)
-    combined_prices.columns = ['ACWI', 'AGGU']
+    combined_prices = pd.concat([risky['Open'], risk_free['Open']], axis=1)
+    combined_prices.columns = ['risky', 'risk_free']
     combined_prices.dropna(inplace=True)
 
-    acwi_annual_returns = (acwi['Adj Close'] - acwi['Open'].shift(253)) / acwi['Open'].shift(253)
-    aggu_annual_returns = (aggu['Adj Close'] - aggu['Open'].shift(253)) / aggu['Open'].shift(253)
-    combined_annual_returns = pd.concat([acwi_annual_returns, aggu_annual_returns], axis=1)
-    combined_annual_returns.columns = ['ACWI', 'AGGU']
+    risky_annual_returns = (risky['Adj Close'] - risky['Open'].shift(253)) / risky['Open'].shift(253)
+    risk_free_annual_returns = (risk_free['Adj Close'] - risk_free['Open'].shift(253)) /risk_free['Open'].shift(253)
+    combined_annual_returns = pd.concat([risky_annual_returns, risk_free_annual_returns], axis=1)
+    combined_annual_returns.columns = ['risky', 'risk_free']
     combined_annual_returns.dropna(inplace=True)
 
-    acwi_volatility = acwi['Adj Close'].pct_change().rolling(window=253).std() * np.sqrt(253)
-    aggu_volatility = aggu['Adj Close'].pct_change().rolling(window=253).std() * np.sqrt(253)
-    combined_volatility = pd.concat([acwi_volatility, aggu_volatility], axis=1)
-    combined_volatility.columns = ['ACWI', 'AGGU']
+    risky_volatility = risky['Adj Close'].pct_change().rolling(window=253).std() * np.sqrt(253)
+    risk_free_volatility = risk_free['Adj Close'].pct_change().rolling(window=253).std() * np.sqrt(253)
+    combined_volatility = pd.concat([risky_volatility, risk_free_volatility], axis=1)
+    combined_volatility.columns = ['risky', 'risk_free']
     combined_volatility.dropna(inplace=True)
 
     # Identify days with negative returns
     negative_return_days = combined_annual_returns[(combined_annual_returns < 0).any(axis=1)].index
 
     # Filter out negative return days from all datasets
-    combined_prices = combined_prices.drop(index=negative_return_days, errors='ignore')
-    combined_annual_returns = combined_annual_returns.drop(index=negative_return_days, errors='ignore')
-    combined_volatility = combined_volatility.drop(index=negative_return_days, errors='ignore')
+    #combined_prices = combined_prices.drop(index=negative_return_days, errors='ignore')
+    #combined_annual_returns = combined_annual_returns.drop(index=negative_return_days, errors='ignore')
+    #combined_volatility = combined_volatility.drop(index=negative_return_days, errors='ignore')
 
     # Remove first 253 days from prices
-    combined_prices = combined_prices.iloc[249:, :]
+    combined_prices = combined_prices.iloc[253:, :]
 
     return combined_prices, combined_annual_returns, combined_volatility

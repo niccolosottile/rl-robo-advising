@@ -7,7 +7,6 @@ from project.utils.others import normalize_portfolio
 import json
 import os
 
-# Need to figure out how to run it on all timesteps
 # Need to develop offline and online training methodologies
 class PortfolioEnv(gym.Env):
     metadata = {'render_modes': ['human']}
@@ -67,26 +66,26 @@ class PortfolioEnv(gym.Env):
 
     def get_market_condition(self):
         # Volatility based market condition
-        current_volatilities = self.constituents_volatility.iloc[self.current_timestep] # Extract asset volatilities at current timestep
-        weighted_volatility = np.dot(self.current_portfolio, current_volatilities) # Calculate weighted portfolio volatility
-        vol_low_threshold = np.dot(self.current_portfolio, self.vol_low_threshold)
-        vol_high_threshold = np.dot(self.current_portfolio, self.vol_high_threshold)
+        current_volatilities = np.array(self.constituents_volatility.iloc[self.current_timestep]) # Extract asset volatilities at current timestep
+        #weighted_volatility = np.dot(self.current_portfolio, current_volatilities) # Calculate weighted portfolio volatility
+        #vol_low_threshold = np.dot(self.current_portfolio, self.vol_low_threshold)
+        #vol_high_threshold = np.dot(self.current_portfolio, self.vol_high_threshold)
 
         vol_condition = (
-            0 if weighted_volatility <= vol_low_threshold
-            else 2 if weighted_volatility > vol_high_threshold
+            0 if current_volatilities[0] <= self.vol_low_threshold[0]
+            else 2 if current_volatilities[0] > self.vol_high_threshold[0]
             else 1
         )
         
         # Returns based market condition
-        current_returns = self.constituents_returns.iloc[self.current_timestep]
-        weighted_returns = np.dot(self.current_portfolio, current_returns)
-        ret_low_threshold = np.dot(self.current_portfolio, self.ret_low_threshold)
-        ret_high_threshold = np.dot(self.current_portfolio, self.ret_high_threshold)
+        current_returns = np.array(self.constituents_returns.iloc[self.current_timestep])
+        #weighted_returns = np.dot(self.current_portfolio, current_returns)
+        #ret_low_threshold = np.dot(self.current_portfolio, self.ret_low_threshold)
+        #ret_high_threshold = np.dot(self.current_portfolio, self.ret_high_threshold)
 
         ret_condition = (
-            0 if weighted_returns <= ret_low_threshold
-            else 2 if weighted_returns > ret_high_threshold
+            0 if current_returns[0] <= self.ret_low_threshold[0]
+            else 2 if current_returns[0] > self.ret_high_threshold[0]
             else 1
         )
 
