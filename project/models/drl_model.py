@@ -93,7 +93,7 @@ class DRLAgent:
 
 if __name__ == "__main__":
     # Extracting prices, returns, and volatility data
-    constituents_prices, constituents_returns, constituents_volatility = load_and_filter_data('project/data/ACWI.csv', 'project/data/AGGU.L.csv')
+    constituents_prices, constituents_returns, constituents_volatility = load_and_filter_data('project/data/VTI.csv', 'project/data/^TNX.csv')
 
     # Initialise, train, and evaluate DRL agent
     agent = DRLAgent(constituents_prices, constituents_returns, constituents_volatility)
@@ -127,7 +127,7 @@ if __name__ == "__main__":
         plt.plot(theta_values[:, idx], label=f'Estimated Risk Profile Market {idx+1}' if idx == 0 else "_nolegend_", color=colours[idx])
 
     # Adding horizontal lines to represent the true risk profile for each market condition
-    true_risk_profiles = [0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90]
+    true_risk_profiles = [0.22, 0.335, 0.09, 0.855, 0.68, 0.48]
     for idx, profile in enumerate(true_risk_profiles):
         plt.axhline(y=profile, linestyle='--', label=f'Risk Profile Market {idx+1}', color=colours[idx])
 

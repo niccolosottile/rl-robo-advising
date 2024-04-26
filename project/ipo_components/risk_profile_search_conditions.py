@@ -26,7 +26,7 @@ def calculate_market_conditions(constituents_returns, constituents_volatility, v
         
         market_condition = 4 * ret_condition + vol_condition
         market_conditions.append(market_condition)
-    
+
     return market_conditions
 
 def aggregate_returns_by_condition(constituents_returns, market_conditions):
@@ -35,7 +35,7 @@ def aggregate_returns_by_condition(constituents_returns, market_conditions):
         if t > 2745:  # Ensure there's at least one previous day to include
             aggregated_data = constituents_returns.iloc[:t+1, :]  # All data up to current day
             aggregated_returns[condition].append(aggregated_data)
-    
+
     return aggregated_returns
 
 def is_valid_portfolio(portfolio):

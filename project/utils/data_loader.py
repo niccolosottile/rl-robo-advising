@@ -31,7 +31,7 @@ def load_and_filter_data(risky_file, risk_free_file):
     combined_volatility.dropna(inplace=True)
 
     # Identify days with negative returns
-    negative_return_days = combined_annual_returns[(combined_annual_returns < 0).any(axis=1)].index
+    #negative_return_days = combined_annual_returns[(combined_annual_returns < 0).any(axis=1)].index
 
     # Filter out negative return days from all datasets
     #combined_prices = combined_prices.drop(index=negative_return_days, errors='ignore')
