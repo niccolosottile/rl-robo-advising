@@ -1,11 +1,82 @@
-import numpy as np
 from stable_baselines3 import PPO
+from stable_baselines3.common.policies import ActorCriticPolicy
+from gymnasium import spaces
+from typing import Callable, Dict, List, Optional, Tuple, Type, Union
+import torch as th
+import torch.nn as nn
+import numpy as np
 from project.envs.portfolio_env import PortfolioEnv
 from project.utils.data_loader import load_and_filter_data
 import matplotlib.pyplot as plt
 import json
-import torch as th
-import torch.nn as nn
+
+class CustomNetwork(nn.Module):
+    def __init__(self, feature_dim: int, last_layer_dim_pi: int = 3, last_layer_dim_vf: int = 1):
+        super(CustomNetwork, self).__init__()
+
+        # IMPORTANT:
+        # Save output dimensions, used to create the distributions
+        self.latent_dim_pi = last_layer_dim_pi
+        self.latent_dim_vf = last_layer_dim_vf
+
+        # Policy network for portfolio weights
+        self.portfolio_net = nn.Sequential(
+            nn.Linear(feature_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, 64),
+            nn.ReLU(),
+            nn.Linear(64, last_layer_dim_pi - 1)  # Outputs for two portfolio actions
+        )
+        # Policy network for solicitation action
+        self.solicitation_net = nn.Sequential(
+            nn.Linear(feature_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, 64),
+            nn.ReLU(),
+            nn.Linear(64, 1)  # Output for binary solicitation action
+        )
+        # Value network
+        self.value_net = nn.Sequential(
+            nn.Linear(feature_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, 64),
+            nn.ReLU(),
+            nn.Linear(64, last_layer_dim_vf)
+        )
+
+    def forward_actor(self, features):
+        portfolio_actions = th.softmax(self.portfolio_net(features), dim=-1)
+        solicitation_action = th.sigmoid(self.solicitation_net(features))
+        return th.cat((portfolio_actions, solicitation_action), dim=-1)
+
+    def forward_critic(self, features):
+        return self.value_net(features)
+
+    def forward(self, features: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
+        return self.forward_actor(features), self.forward_critic(features)
+
+class CustomActorCriticPolicy(ActorCriticPolicy):
+    def __init__(
+        self,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
+        lr_schedule: Callable[[float], float],
+        *args,
+        **kwargs,
+    ):
+        # Disable orthogonal initialization
+        kwargs["ortho_init"] = False
+        super().__init__(
+            observation_space,
+            action_space,
+            lr_schedule,
+            # Pass remaining arguments to base class
+            *args,
+            **kwargs,
+        )
+
+    def _build_mlp_extractor(self) -> None:
+        self.mlp_extractor = CustomNetwork(self.features_dim)
 
 class DRLAgent:
     def __init__(self, constituents_prices, constituents_returns, constituents_volatility):
@@ -24,7 +95,7 @@ class DRLAgent:
             )
 
         # Initialize PPO model with a Multi-Layer Perceptron (MLP) policy
-        self.model = PPO("MlpPolicy", self.env, verbose=1)
+        self.model = PPO(CustomActorCriticPolicy, self.env, verbose=1)
 
         # Initialize the best reward as very low
         self.best_reward = -float('inf') 
@@ -32,7 +103,9 @@ class DRLAgent:
         print("Agent initialised.")
 
     def train(self, total_timesteps=10000):
-        for _ in range(0, total_timesteps, 10000):
+        for current_total_timesteps in range(0, total_timesteps, 10000):
+            print("Total timesteps trained so far: ", current_total_timesteps)
+
             # Train the model for eval_interval timesteps
             self.model.learn(total_timesteps=10000)
 
@@ -43,7 +116,7 @@ class DRLAgent:
             # If model is better save it
             if average_reward > self.best_reward:
                 self.best_reward = average_reward
-                self.save_model('best_model.zip')
+                self.save_model("project/models/best_model.zip")
                 print(f"New best model saved with average reward: {average_reward}")
 
         print("Training completed.")
@@ -57,9 +130,9 @@ class DRLAgent:
             terminated = False
             while not terminated:
                 action, _ = self.model.predict(state, deterministic=True)
+                #print(action)
                 next_state, reward, terminated, _, info = self.env.step(action)
                 state = next_state
-
                 episode_rewards.append(reward)
                 true_theta = info['true_theta']
                 estimated_theta = info['estimated_theta']
@@ -74,12 +147,12 @@ class DRLAgent:
     def save_model(self, path):
         """Saves the model to the specified path."""
         self.model.save(path)
-        print(f"Model saved to {model_path}")
+        print(f"Model saved to {path}")
     
     def load_model(self, path):
         """Loads the model from the specified path."""
-        self.model = PPO.load(path, env=self.env) 
-        print(f"Model loaded from {model_path}")
+        self.model = PPO.load(path, env=self.env, custom_objects={"policy": CustomActorCriticPolicy})
+        print(f"Model loaded from {path}")
 
     def load_theta_values(self, path):
         """Loads theta values from the specified path."""
@@ -117,21 +190,20 @@ if __name__ == "__main__":
     # Initialise, train, and evaluate DRL agent
     agent = DRLAgent(constituents_prices, constituents_returns, constituents_volatility)
 
-    model_path = "project/models/model.zip" # Path to save or load model from
-    theta_values_path = "project/data/theta_values.json"  # Path to save or load theta values from
-    train_model = False # Option to train or load already trained model
+    model_path = "project/models/best_model.zip" # Path to save or load model from
+    train_model = True # Option to train or load already trained model
 
     if train_model:
-        agent.train(total_timesteps=100000)
-        # Save the trained model
-        agent.save_model(model_path)
-    else:
-        # Load the model for evaluation
-        agent.load_model(model_path)
+        agent.train(total_timesteps=200000)
+
+    # Load the model for evaluation
+    agent.load_model(model_path)
 
     # Evaluate the model
     evaluation_info = agent.evaluate(num_episodes=1)
     plot_evaluation_results(evaluation_info)
+
+    theta_values_path = "project/data/theta_values.json"  # Path to save or load theta values from
 
     # Load the theta values for evaluation
     agent.load_theta_values(theta_values_path)

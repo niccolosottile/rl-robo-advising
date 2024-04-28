@@ -2,12 +2,9 @@ import numpy as np
 import gymnasium as gym
 from project.ipo_components.inverse_MVO_optimisation import inverse_MVO_optimisation
 from project.ipo_components.MVO_optimisation import MVO_optimisation
-from project.utils.utility_function import mean_variance_utility
-from project.utils.others import normalize_portfolio
 import json
 import os
 
-# Add another penalty to reward so that weights needs to sum to 1 and an asset needs to have at least 0.01 and no more than 0.99
 class PortfolioEnv(gym.Env):
     metadata = {'render_modes': ['human']}
 
@@ -49,6 +46,7 @@ class PortfolioEnv(gym.Env):
         self.solicited_this_step = {} # Avoids simulating behaviour multiple times
         self.K = 0.00003809523 # Opportunity cost of soliciting investor choice on daily basis
         self.portfolio_value = 55160 # Based on Statista 2024 average robo-advisor user portfolio value
+        self.solicitation_penalty = self.K * self.portfolio_value
         self.theta_values = []  # Store theta values for each step
 
         # Define observation space based on set of market conditions
@@ -60,6 +58,13 @@ class PortfolioEnv(gym.Env):
         self.eval_mode = False
         self.train_end_step = 2745 + int(0.8 * (self.n_timesteps - 2745))  # 80% of data for training
         self.eval_end_step = self.n_timesteps  # Remaining 20% for evaluation
+
+        # Used to optimise training process by caching optimal portfolios in reward function
+        self.optimal_portfolio_cache = {}  # Cache for storing optimal portfolios
+        self.episode_count = 0
+        self.caching_threshold = 9  # Start caching after 10 episodes (estimate of self.current_theta has converged)
+
+        #print(self.market_conditions[self.train_end_step+1:])
 
     def get_state(self):
         return self.current_market_condition
@@ -172,27 +177,41 @@ class PortfolioEnv(gym.Env):
         # Get current market condition
         market_condition = self.current_market_condition
 
+        reward = 0
+
         # If investor was asked update estimate of theta
-        if ask_investor and just_solicited:
-            # Generate risk profile corresponding to portfolio using IPO
-            inferred_theta = inverse_MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep, :], self.current_portfolio)
-            
-            # Apply incremental averaging of theta estimates
-            self.n_solicited[market_condition] += 1 # Increase solicited count
-            if self.n_solicited[market_condition] == 1:
-                self.current_theta[market_condition] = inferred_theta # Delete initialisation of theta
-            else:
-                current_theta = self.current_theta[market_condition]
-                self.current_theta[market_condition] = current_theta + (inferred_theta - current_theta) / self.n_solicited[market_condition] # Update estimate of theta
+        if ask_investor:
+            # Reduce by cost of soliciting K based on portfolio value
+            reward -= self.solicitation_penalty
+
+            if just_solicited:
+                # Generate risk profile corresponding to portfolio using IPO
+                inferred_theta = inverse_MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep, :], self.current_portfolio)
+                
+                # Apply incremental averaging of theta estimates
+                self.n_solicited[market_condition] += 1 # Increase solicited count
+                if self.n_solicited[market_condition] == 1:
+                    self.current_theta[market_condition] = inferred_theta # Delete initialisation of theta
+                else:
+                    current_theta = self.current_theta[market_condition]
+                    self.current_theta[market_condition] = current_theta + (inferred_theta - current_theta) / self.n_solicited[market_condition] # Update estimate of theta
 
         # Calculate reward using mean-variance utility function and current estimate of theta
         true_theta = self.theta[market_condition] if self.eval_mode else self.current_theta[market_condition]
-        reward = mean_variance_utility(self.constituents_returns.iloc[:self.current_timestep, :], self.current_portfolio, true_theta)
 
-        # If investor was asked reduce reward
-        if ask_investor:
-            # Reduce by cost of soliciting K based on portfolio value
-            reward -= self.K * self.portfolio_value
+        # Start using the cache only after a certain number of episodes
+        if self.episode_count > self.caching_threshold:
+            if self.current_timestep not in self.optimal_portfolio_cache:
+                # Calculate the optimal portfolio using MVO
+                optimal_portfolio = MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep, :], true_theta)
+                self.optimal_portfolio_cache[self.current_timestep] = optimal_portfolio
+            optimal_portfolio = self.optimal_portfolio_cache[self.current_timestep]
+        else:
+            # Compute optimal portfolio every time before caching starts
+            optimal_portfolio = MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep, :], true_theta)
+
+        # Reward is based on difference between current and optimal portfolio
+        reward -= 1 * np.linalg.norm(np.array(self.current_portfolio) - np.array(optimal_portfolio))
 
         return reward
         
@@ -210,10 +229,7 @@ class PortfolioEnv(gym.Env):
             # Generate portfolio corresponding to risk profile using MVO optimisation
             portfolio_choice = MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep, :], investor_theta)
 
-        # Normalize the portfolio weights to sum to 1
-        normalized_portfolio_choice = normalize_portfolio(portfolio_choice)
-
-        self.current_portfolio = normalized_portfolio_choice # Update current portfolio
+        self.current_portfolio = portfolio_choice # Update current portfolio
         reward = self.calculate_reward(ask_investor, just_solicited) # Calculate reward
         self.current_market_condition = self.get_market_condition() # Retrieve new market condition
         next_state = self.get_state() # Retrieve next state
@@ -222,7 +238,7 @@ class PortfolioEnv(gym.Env):
         truncated = False # Episodes aren't being cut short
         if self.eval_mode:
             true_theta = self.theta[self.current_market_condition]
-            estimated_theta = inverse_MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep+1, :], self.current_portfolio)
+            estimated_theta = inverse_MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep, :], self.current_portfolio)
             info = {'true_theta': true_theta, 'estimated_theta': estimated_theta}
         else:
             info = {}
@@ -253,6 +269,7 @@ class PortfolioEnv(gym.Env):
         self.current_timestep = self.train_end_step + 1 if self.eval_mode else 2745 # Reset timestep
         self.current_portfolio = np.full((self.n_assets,), 1/self.n_assets) # Reset to equally weighted portfolio
         self.current_market_condition = self.get_market_condition()
+        self.episode_count += 1  # Increment episode count on each reset
         info = {}
 
         return self.get_state(), info
