@@ -4,6 +4,8 @@ from project.envs.portfolio_env import PortfolioEnv
 from project.utils.data_loader import load_and_filter_data
 import matplotlib.pyplot as plt
 import json
+import torch as th
+import torch.nn as nn
 
 class DRLAgent:
     def __init__(self, constituents_prices, constituents_returns, constituents_volatility):
@@ -16,7 +18,6 @@ class DRLAgent:
             constituents_prices = self.constituents_prices,
             constituents_returns = self.constituents_returns, 
             consitutents_volatility = self.constituents_volatility,                     
-            lookback_window_size = 1200,
             r=0.05,
             max_theta=0.17,
             min_theta=0.01
@@ -25,55 +26,50 @@ class DRLAgent:
         # Initialize PPO model with a Multi-Layer Perceptron (MLP) policy
         self.model = PPO("MlpPolicy", self.env, verbose=1)
 
+        # Initialize the best reward as very low
+        self.best_reward = -float('inf') 
+
         print("Agent initialised.")
 
     def train(self, total_timesteps=10000):
-        self.model.learn(total_timesteps=total_timesteps)
+        for _ in range(0, total_timesteps, 10000):
+            # Train the model for eval_interval timesteps
+            self.model.learn(total_timesteps=10000)
+
+            # Evaluate the model
+            evaluation_results = self.evaluate(num_episodes=1)
+            average_reward = np.mean(evaluation_results["rewards"])
+            
+            # If model is better save it
+            if average_reward > self.best_reward:
+                self.best_reward = average_reward
+                self.save_model('best_model.zip')
+                print(f"New best model saved with average reward: {average_reward}")
+
         print("Training completed.")
 
-    def evaluate(self, num_episodes=10):
-        true_risk_profile = 0.5
-        total_rewards = []
-        theta_values = []
-        theta_deviations = []
+    def evaluate(self, num_episodes=1):
+        episode_rewards = []
+        estimation_errors = []
 
-        for episode in range(num_episodes):
-            obs, _ = self.env.reset()
-            done = False
-            total_reward = 0
-            episode_theta_values = []
+        for _ in range(num_episodes):
+            state, _ = self.env.reset(eval_mode=True)
+            terminated = False
+            while not terminated:
+                action, _ = self.model.predict(state, deterministic=True)
+                next_state, reward, terminated, _, info = self.env.step(action)
+                state = next_state
 
-            while not done:
-                action, _ = self.model.predict(obs, deterministic=True)
-                obs, reward, done, _, info = self.env.step(action)
-                total_reward += reward
-                current_theta = info.get('current_theta', None)
-                episode_theta_values.append(current_theta)
+                episode_rewards.append(reward)
+                true_theta = info['true_theta']
+                estimated_theta = info['estimated_theta']
+                error = abs(estimated_theta - true_theta)
+                estimation_errors.append(error)
 
-            # Calculate and store deviations from true risk profile for this episode
-            deviations = [abs(theta - true_risk_profile) for theta in episode_theta_values if theta is not None]
-            theta_deviations.append(np.mean(deviations) if deviations else None)
-
-            total_rewards.append(total_reward)
-            theta_values.extend(episode_theta_values)  # Extend to flatten list of lists
-
-        avg_reward = np.mean(total_rewards)
-        avg_deviation = np.nanmean(theta_deviations)  # Using nanmean to ignore None values
-        avg_theta = np.mean(theta_values)
-        print(f"Average Reward: {avg_reward}")
-        print(f"Average Deviation from True Risk Profile: {avg_deviation}")
-
-        # Plotting
-        plt.figure(figsize=(10, 5))
-        plt.plot(theta_deviations, label='Deviation from True Risk Profile per Episode')
-        plt.xlabel('Episode')
-        plt.ylabel('Deviation from True Risk Profile')
-        plt.title('Convergence of Estimated Risk Profile to True Risk Profile')
-        plt.legend()
-        plt.show()
-
-        # More detailed evaluation data
-        return {'average_reward': avg_reward, 'average_theta_deviation': avg_deviation, 'average_theta_value': avg_theta}
+        return {
+            "rewards": episode_rewards,
+            "estimation_errors": estimation_errors
+        }
 
     def save_model(self, path):
         """Saves the model to the specified path."""
@@ -91,6 +87,29 @@ class DRLAgent:
             self.theta_values = np.array(json.load(f))
         print(f"theta values loaded from {path}")
 
+def plot_evaluation_results(evaluation_info):
+    rewards = evaluation_info['rewards']
+    estimation_errors = evaluation_info['estimation_errors']
+
+    fig, axs = plt.subplots(2, 1, figsize=(12, 10))
+
+    # Plotting rewards
+    axs[0].plot(rewards, color='blue', label='Rewards')
+    axs[0].set_title('Rewards Over Timesteps')
+    axs[0].set_xlabel('Timestep')
+    axs[0].set_ylabel('Reward')
+    axs[0].legend()
+
+    # Plotting estimation errors
+    axs[1].plot(estimation_errors, color='red', label='Estimation Errors')
+    axs[1].set_title('Estimation Errors Over Timesteps')
+    axs[1].set_xlabel('Timestep')
+    axs[1].set_ylabel('Absolute Error')
+    axs[1].legend()
+
+    plt.tight_layout()
+    plt.show()
+
 if __name__ == "__main__":
     # Extracting prices, returns, and volatility data
     constituents_prices, constituents_returns, constituents_volatility = load_and_filter_data('project/data/VTI.csv', 'project/data/^TNX.csv')
@@ -100,7 +119,7 @@ if __name__ == "__main__":
 
     model_path = "project/models/model.zip" # Path to save or load model from
     theta_values_path = "project/data/theta_values.json"  # Path to save or load theta values from
-    train_model = True # Option to train or load already trained model
+    train_model = False # Option to train or load already trained model
 
     if train_model:
         agent.train(total_timesteps=100000)
@@ -109,6 +128,10 @@ if __name__ == "__main__":
     else:
         # Load the model for evaluation
         agent.load_model(model_path)
+
+    # Evaluate the model
+    evaluation_info = agent.evaluate(num_episodes=1)
+    plot_evaluation_results(evaluation_info)
 
     # Load the theta values for evaluation
     agent.load_theta_values(theta_values_path)
@@ -141,7 +164,3 @@ if __name__ == "__main__":
 
     # Display the plot
     plt.show()
-
-    # Evaluate the model
-    #evaluation_info = agent.evaluate(num_episodes=100)
-    #print("Evaluation results:", evaluation_info)
