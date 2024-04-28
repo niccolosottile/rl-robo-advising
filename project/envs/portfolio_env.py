@@ -62,7 +62,7 @@ class PortfolioEnv(gym.Env):
         # Used to optimise training process by caching optimal portfolios in reward function
         self.optimal_portfolio_cache = {}  # Cache for storing optimal portfolios
         self.episode_count = 0
-        self.caching_threshold = 9  # Start caching after 10 episodes (estimate of self.current_theta has converged)
+        self.caching_threshold = 10  # Start caching after 10 episodes (estimate of self.current_theta has converged)
 
         #print(self.market_conditions[self.train_end_step+1:])
 
@@ -211,7 +211,7 @@ class PortfolioEnv(gym.Env):
             optimal_portfolio = MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep, :], true_theta)
 
         # Reward is based on difference between current and optimal portfolio
-        reward -= 1 * np.linalg.norm(np.array(self.current_portfolio) - np.array(optimal_portfolio))
+        reward -= 2 * np.linalg.norm(np.array(self.current_portfolio) - np.array(optimal_portfolio))
 
         return reward
         

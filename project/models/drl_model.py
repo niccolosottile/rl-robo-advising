@@ -194,7 +194,7 @@ if __name__ == "__main__":
     train_model = True # Option to train or load already trained model
 
     if train_model:
-        agent.train(total_timesteps=200000)
+        agent.train(total_timesteps=1000000)
 
     # Load the model for evaluation
     agent.load_model(model_path)
