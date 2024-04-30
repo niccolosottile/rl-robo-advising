@@ -15,7 +15,7 @@ def validate_environment():
     )
 
     # Reset the environment to start
-    observation = env.reset()
+    _ = env.reset()
 
     # Number of steps to simulate
     num_steps = 100
@@ -29,14 +29,12 @@ def validate_environment():
 
         portfolio_choice = action[:-1] # Portfolio allocation decision
         ask_investor = action[-1] > 0.5 # Decision to ask the investor
-
-        normalized_portfolio_choice = portfolio_choice / np.sum(portfolio_choice)
         
         # Perform a step in the environment
         new_observation, reward, done, info = env.step(action)
         
         # Print the results to inspect
-        print(f"Action Taken (formatted): {normalized_portfolio_choice.tolist() if not ask_investor else False}")
+        print(f"Action Taken (formatted): {portfolio_choice.tolist() if not ask_investor else False}")
         print(f"New Observation: {new_observation}")
         print(f"Reward: {reward}")
         print(f"Done: {done}")
@@ -45,7 +43,7 @@ def validate_environment():
         # Check if the episode is done and reset if it is
         if done:
             print("Resetting environment\n")
-            observation = env.reset()
+            _ = env.reset()
 
 if __name__ == "__main__":
     validate_environment()

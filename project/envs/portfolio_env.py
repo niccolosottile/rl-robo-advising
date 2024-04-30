@@ -46,7 +46,7 @@ class PortfolioEnv(gym.Env):
         self.solicited_this_step = {} # Avoids simulating behaviour multiple times
         self.K = 0.00003809523 # Opportunity cost of soliciting investor choice on daily basis
         self.portfolio_value = 55160 # Based on Statista 2024 average robo-advisor user portfolio value
-        self.solicitation_penalty = self.K * self.portfolio_value
+        self.solicitation_penalty = self.K * self.portfolio_value * 0.3 # Scaled to encourage exploration in unseen states
         self.theta_values = []  # Store theta values for each step
 
         # Define observation space based on set of market conditions
@@ -208,7 +208,8 @@ class PortfolioEnv(gym.Env):
             optimal_portfolio = MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep, :], true_theta)
 
         # Reward is based on difference between current and optimal portfolio
-        reward -= np.linalg.norm(np.array(self.current_portfolio) - np.array(optimal_portfolio))
+        #reward -= np.linalg.norm(np.array(self.current_portfolio) - np.array(optimal_portfolio))
+        reward -= np.sum(np.abs(np.array(self.current_portfolio) - np.array(optimal_portfolio)))
 
         return reward
         
@@ -273,8 +274,6 @@ class PortfolioEnv(gym.Env):
         self.current_portfolio = np.full((self.n_assets,), 1/self.n_assets) # Reset to equally weighted portfolio
         self.current_market_condition = self.get_market_condition()
         self.episode_count += 1  # Increment episode count on each reset
-        if self.episode_count > self.caching_threshold:
-            print(self.current_theta)
         info = {}
 
         return self.get_state(), info

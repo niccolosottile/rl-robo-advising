@@ -122,6 +122,9 @@ class DRLAgent:
             # Plot results at every interval
             plot_evaluation_results(evaluation_results)
 
+        # Plot estimates of theta values
+        plot_theta_values()
+
         print("Training completed.")
 
     def evaluate(self, num_episodes=1):
@@ -137,10 +140,12 @@ class DRLAgent:
                 action, _ = self.model.predict(state, deterministic=True)
                 next_state, reward, terminated, _, info = self.env.step(action)
                 state = next_state
-                episode_rewards.append(reward)
+    
                 true_theta = info['true_theta']
                 estimated_theta = info['estimated_theta']
                 error = abs(estimated_theta - true_theta)
+
+                episode_rewards.append(reward)
                 estimation_errors.append(error)
                 estimated_thetas.append(estimated_theta)
                 true_thetas.append(true_theta)
@@ -161,12 +166,6 @@ class DRLAgent:
         """Loads the model from the specified path."""
         self.model = PPO.load(path, env=self.env, custom_objects={"policy": CustomActorCriticPolicy})
         print(f"Model loaded from {path}")
-
-    def load_theta_values(self, path):
-        """Loads theta values from the specified path."""
-        with open(path, 'r') as f:
-            self.theta_values = np.array(json.load(f))
-        print(f"theta values loaded from {path}")
 
 def plot_evaluation_results(evaluation_info):
     estimation_errors = evaluation_info['estimation_errors']
@@ -202,33 +201,13 @@ def plot_evaluation_results(evaluation_info):
     plt.tight_layout()
     plt.show()
 
-if __name__ == "__main__":
-    # Extracting prices, returns, and volatility data
-    constituents_prices, constituents_returns, constituents_volatility = load_and_filter_data('project/data/VTI.csv', 'project/data/^TNX.csv')
+def plot_theta_values():
+    path = "project/data/theta_values.json"
 
-    # Initialise, train, and evaluate DRL agent
-    agent = DRLAgent(constituents_prices, constituents_returns, constituents_volatility)
-
-    model_path = "project/models/best_model.zip" # Path to save or load model from
-    train_model = True # Option to train or load already trained model
-
-    if train_model:
-        agent.train(total_timesteps=100000)
-
-    # Load the model for evaluation
-    agent.load_model(model_path)
-
-    # Evaluate the model
-    evaluation_info = agent.evaluate(num_episodes=1)
-    plot_evaluation_results(evaluation_info)
-
-    theta_values_path = "project/data/theta_values.json"  # Path to save or load theta values from
-
-    # Load the theta values for evaluation
-    agent.load_theta_values(theta_values_path)
-    
     # Load the theta values
-    theta_values = agent.theta_values
+    with open(path, 'r') as f:
+        theta_values = np.array(json.load(f))
+        print(f"theta values loaded from {path}")
 
     # Create a plot with specified figure size
     plt.figure(figsize=(15, 8))
@@ -247,7 +226,7 @@ if __name__ == "__main__":
 
     # Setting labels and title
     plt.xlabel('Timestep')
-    plt.ylabel('Risk Profile (theta)')
+    plt.ylabel('Risk Profile')
     plt.title('Convergence of Estimated Risk Profile Over Training Timesteps by Market Condition')
 
     # Adding legend to the plot, adjusting location to avoid overlap
@@ -255,3 +234,23 @@ if __name__ == "__main__":
 
     # Display the plot
     plt.show()
+
+if __name__ == "__main__":
+    # Extracting prices, returns, and volatility data
+    constituents_prices, constituents_returns, constituents_volatility = load_and_filter_data('project/data/VTI.csv', 'project/data/^TNX.csv')
+
+    # Initialise, train, and evaluate DRL agent
+    agent = DRLAgent(constituents_prices, constituents_returns, constituents_volatility)
+
+    model_path = "project/models/best_model.zip" # Path to save or load model from
+    train_model = True # Option to train or load already trained model
+
+    if train_model:
+        agent.train(total_timesteps=100000)
+
+    # Load the best model for evaluation
+    agent.load_model(model_path)
+
+    # Evaluate the model
+    evaluation_info = agent.evaluate(num_episodes=1)
+    plot_evaluation_results(evaluation_info)
