@@ -103,14 +103,23 @@ class DRLAgent:
         print("Agent initialised.")
 
     def train(self, total_timesteps=10000):
-        for current_total_timesteps in range(0, total_timesteps, 10000):
+        for current_total_timesteps in range(0, total_timesteps, 5000):
             print("Total timesteps trained so far: ", current_total_timesteps)
 
             # Train the model for evaluation interval timesteps
-            self.model.learn(total_timesteps=10000)
+            self.model.learn(total_timesteps=5000)
 
             # Evaluate the model
             evaluation_results = self.evaluate(num_episodes=1)
+
+            # Logging and using the additional metrics
+            # print(f"Mean Absolute Error: {evaluation_results['mean_error']}")
+            # print(f"Standard Deviation of Errors: {evaluation_results['std_error']}")
+            # print(f"Max Error: {evaluation_results['max_error']}")
+            # print(f"Min Error: {evaluation_results['min_error']}")
+            # print(f"Mean Reward: {evaluation_results['mean_reward']}")
+            # print(f"Mean Error excluding unseen conditions: {evaluation_results['mean_error_excluding_unseen']}")
+
             average_reward = np.mean(evaluation_results["rewards"])
             
             # If model is better save it
@@ -120,7 +129,7 @@ class DRLAgent:
                 print(f"New best model saved with average reward: {average_reward}")
 
             # Plot results at every interval
-            plot_evaluation_results(evaluation_results)
+            #plot_evaluation_results(evaluation_results)
 
         # Plot estimates of theta values
         plot_theta_values()
@@ -132,6 +141,7 @@ class DRLAgent:
         estimation_errors = []
         estimated_thetas = []
         true_thetas = []
+        market_conditions = []
 
         for _ in range(num_episodes):
             state, _ = self.env.reset(eval_mode=True)
@@ -139,7 +149,6 @@ class DRLAgent:
             while not terminated:
                 action, _ = self.model.predict(state, deterministic=True)
                 next_state, reward, terminated, _, info = self.env.step(action)
-                state = next_state
     
                 true_theta = info['true_theta']
                 estimated_theta = info['estimated_theta']
@@ -149,12 +158,32 @@ class DRLAgent:
                 estimation_errors.append(error)
                 estimated_thetas.append(estimated_theta)
                 true_thetas.append(true_theta)
+                market_conditions.append(state)
+
+                state = next_state
+
+        # Calculating additional metrics
+        mean_error = np.mean(estimation_errors)
+        std_error = np.std(estimation_errors)
+        max_error = np.max(estimation_errors)
+        min_error = np.min(estimation_errors)
+        mean_reward = np.mean(episode_rewards)
+
+        # Exclude unseen state (market condition 3) for mean absolute error calculation
+        errors_excluding_unseen = [estimation_errors[i] for i in range(len(market_conditions)) if market_conditions[i] != 3]
+        mean_error_excluding_unseen = np.mean(errors_excluding_unseen) if errors_excluding_unseen else None
 
         return {
             "rewards": episode_rewards,
             "estimation_errors": estimation_errors,
             "estimated_thetas": estimated_thetas,
             "true_thetas": true_thetas,
+            "mean_error": mean_error,
+            "mean_error_excluding_unseen": mean_error_excluding_unseen,
+            "std_error": std_error,
+            "max_error": max_error,
+            "min_error": min_error,
+            "mean_reward": mean_reward
         }
 
     def save_model(self, path):
@@ -171,6 +200,14 @@ def plot_evaluation_results(evaluation_info):
     estimation_errors = evaluation_info['estimation_errors']
     estimated_thetas = evaluation_info['estimated_thetas']
     true_thetas = evaluation_info['true_thetas']
+    
+    # Logging and using the additional metrics
+    print(f"Mean Absolute Error: {evaluation_info['mean_error']}")
+    print(f"Standard Deviation of Errors: {evaluation_info['std_error']}")
+    print(f"Max Error: {evaluation_info['max_error']}")
+    print(f"Min Error: {evaluation_info['min_error']}")
+    print(f"Mean Reward: {evaluation_info['mean_reward']}")
+    print(f"Mean Error excluding unseen conditions: {evaluation_info['mean_error_excluding_unseen']}")
 
     fig, ax1 = plt.subplots(figsize=(12, 6))
 
@@ -210,7 +247,7 @@ def plot_theta_values():
         print(f"theta values loaded from {path}")
 
     # Create a plot with specified figure size
-    plt.figure(figsize=(15, 8))
+    plt.figure(figsize=(12, 6))
 
     # Define a color palette
     colours = plt.cm.nipy_spectral(np.linspace(0, 1, theta_values.shape[1]))
@@ -230,7 +267,7 @@ def plot_theta_values():
     plt.title('Convergence of Estimated Risk Profile Over Training Timesteps by Market Condition')
 
     # Adding legend to the plot, adjusting location to avoid overlap
-    plt.legend(loc='lower right')
+    plt.legend(loc='upper left')
 
     # Display the plot
     plt.show()
@@ -246,7 +283,7 @@ if __name__ == "__main__":
     train_model = True # Option to train or load already trained model
 
     if train_model:
-        agent.train(total_timesteps=100000)
+        agent.train(total_timesteps=300000)
 
     # Load the best model for evaluation
     agent.load_model(model_path)

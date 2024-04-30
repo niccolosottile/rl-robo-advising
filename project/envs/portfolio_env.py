@@ -46,7 +46,7 @@ class PortfolioEnv(gym.Env):
         self.solicited_this_step = {} # Avoids simulating behaviour multiple times
         self.K = 0.00003809523 # Opportunity cost of soliciting investor choice on daily basis
         self.portfolio_value = 55160 # Based on Statista 2024 average robo-advisor user portfolio value
-        self.solicitation_penalty = self.K * self.portfolio_value * 0.3 # Scaled to encourage exploration in unseen states
+        self.solicitation_penalty = self.K * self.portfolio_value * 0.27 # Scaled to encourage exploration in unseen states 
         self.theta_values = []  # Store theta values for each step
 
         # Define observation space based on set of market conditions
@@ -62,7 +62,7 @@ class PortfolioEnv(gym.Env):
         # Used to optimise training process by caching optimal portfolios in reward function
         self.optimal_portfolio_cache = {}  # Cache for storing optimal portfolios
         self.episode_count = 0
-        self.caching_threshold = 10  # Start caching after 10 episodes (estimate of self.current_theta has converged)
+        self.caching_threshold = 50  # Start caching after 10 episodes (estimate of self.current_theta has converged)
 
     def get_state(self):
         return self.current_market_condition
@@ -235,7 +235,7 @@ class PortfolioEnv(gym.Env):
         next_state = self.get_state() # Retrieve next state
 
         terminated = (self.current_timestep >= self.eval_end_step - 1) \
-            if self.eval_mode else (self.current_timestep >= self.train_end_step - 1)    
+            if self.eval_mode else (self.current_timestep >= self.ending_timestep - 1)    
 
         truncated = False # Episodes aren't being cut short
 
@@ -269,8 +269,12 @@ class PortfolioEnv(gym.Env):
                     json.dump(self.theta_values, f)
                 print(f"theta values saved to {theta_values_path}")
 
+        # Randomly select a new starting point for the next episode
+        max_start = self.train_end_step - 200  # Ensure there is room for 200 timesteps
+        self.initial_timestep = self.train_end_step + 1 if self.eval_mode else np.random.randint(2745, max_start + 1)
+        self.ending_timestep = self.initial_timestep + 200
+        self.current_timestep = self.initial_timestep
         self.theta_values = []  # Reset theta values for the next episode
-        self.current_timestep = self.train_end_step + 1 if self.eval_mode else 2745 # Reset timestep
         self.current_portfolio = np.full((self.n_assets,), 1/self.n_assets) # Reset to equally weighted portfolio
         self.current_market_condition = self.get_market_condition()
         self.episode_count += 1  # Increment episode count on each reset
