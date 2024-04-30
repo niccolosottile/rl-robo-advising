@@ -64,8 +64,6 @@ class PortfolioEnv(gym.Env):
         self.episode_count = 0
         self.caching_threshold = 10  # Start caching after 10 episodes (estimate of self.current_theta has converged)
 
-        #print(self.market_conditions[self.train_end_step+1:])
-
     def get_state(self):
         return self.current_market_condition
 
@@ -97,7 +95,6 @@ class PortfolioEnv(gym.Env):
 
     def initialize_theta_bounds_and_conditions(self):
         # Risk propile lower and upper bounds defined for each market condition empirically (see risk_profile_search_conditions.py)
-        # Adding lower bounds where really it is 0.01 to make risk profile converge to upper bound
         distinct_conditions = {10: (0.8, 0.91), 14: (0.56, 0.8), 15: (0.4, 0.56),
                                6: (0.27, 0.4), 1: (0.17, 0.27), 9: (0.01, 0.17)}
 
@@ -189,12 +186,12 @@ class PortfolioEnv(gym.Env):
                 inferred_theta = inverse_MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep, :], self.current_portfolio)
                 
                 # Apply incremental averaging of theta estimates
-                self.n_solicited[market_condition] += 1 # Increase solicited count
+                self.n_solicited[market_condition] += 1
                 if self.n_solicited[market_condition] == 1:
-                    self.current_theta[market_condition] = inferred_theta # Delete initialisation of theta
+                    self.current_theta[market_condition] = inferred_theta
                 else:
                     current_theta = self.current_theta[market_condition]
-                    self.current_theta[market_condition] = current_theta + (inferred_theta - current_theta) / self.n_solicited[market_condition] # Update estimate of theta
+                    self.current_theta[market_condition] = current_theta + (inferred_theta - current_theta) / self.n_solicited[market_condition]
 
         # Calculate reward using mean-variance utility function and current estimate of theta
         true_theta = self.theta[market_condition] if self.eval_mode else self.current_theta[market_condition]
@@ -211,7 +208,7 @@ class PortfolioEnv(gym.Env):
             optimal_portfolio = MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep, :], true_theta)
 
         # Reward is based on difference between current and optimal portfolio
-        reward -= 2 * np.linalg.norm(np.array(self.current_portfolio) - np.array(optimal_portfolio))
+        reward -= np.linalg.norm(np.array(self.current_portfolio) - np.array(optimal_portfolio))
 
         return reward
         
@@ -230,12 +227,18 @@ class PortfolioEnv(gym.Env):
             portfolio_choice = MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep, :], investor_theta)
 
         self.current_portfolio = portfolio_choice # Update current portfolio
+        
         reward = self.calculate_reward(ask_investor, just_solicited) # Calculate reward
+
         self.current_market_condition = self.get_market_condition() # Retrieve new market condition
         next_state = self.get_state() # Retrieve next state
+
         terminated = (self.current_timestep >= self.eval_end_step - 1) \
-            if self.eval_mode else (self.current_timestep >= self.train_end_step - 1)
+            if self.eval_mode else (self.current_timestep >= self.train_end_step - 1)    
+
         truncated = False # Episodes aren't being cut short
+
+        # Provide additional evaluation info if in evaluation mode
         if self.eval_mode:
             true_theta = self.theta[self.current_market_condition]
             estimated_theta = inverse_MVO_optimisation(self.constituents_returns.iloc[:self.current_timestep, :], self.current_portfolio)
@@ -270,6 +273,8 @@ class PortfolioEnv(gym.Env):
         self.current_portfolio = np.full((self.n_assets,), 1/self.n_assets) # Reset to equally weighted portfolio
         self.current_market_condition = self.get_market_condition()
         self.episode_count += 1  # Increment episode count on each reset
+        if self.episode_count > self.caching_threshold:
+            print(self.current_theta)
         info = {}
 
         return self.get_state(), info

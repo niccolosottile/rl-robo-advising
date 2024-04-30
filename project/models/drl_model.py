@@ -106,7 +106,7 @@ class DRLAgent:
         for current_total_timesteps in range(0, total_timesteps, 10000):
             print("Total timesteps trained so far: ", current_total_timesteps)
 
-            # Train the model for eval_interval timesteps
+            # Train the model for evaluation interval timesteps
             self.model.learn(total_timesteps=10000)
 
             # Evaluate the model
@@ -119,18 +119,22 @@ class DRLAgent:
                 self.save_model("project/models/best_model.zip")
                 print(f"New best model saved with average reward: {average_reward}")
 
+            # Plot results at every interval
+            plot_evaluation_results(evaluation_results)
+
         print("Training completed.")
 
     def evaluate(self, num_episodes=1):
         episode_rewards = []
         estimation_errors = []
+        estimated_thetas = []
+        true_thetas = []
 
         for _ in range(num_episodes):
             state, _ = self.env.reset(eval_mode=True)
             terminated = False
             while not terminated:
                 action, _ = self.model.predict(state, deterministic=True)
-                #print(action)
                 next_state, reward, terminated, _, info = self.env.step(action)
                 state = next_state
                 episode_rewards.append(reward)
@@ -138,10 +142,14 @@ class DRLAgent:
                 estimated_theta = info['estimated_theta']
                 error = abs(estimated_theta - true_theta)
                 estimation_errors.append(error)
+                estimated_thetas.append(estimated_theta)
+                true_thetas.append(true_theta)
 
         return {
             "rewards": episode_rewards,
-            "estimation_errors": estimation_errors
+            "estimation_errors": estimation_errors,
+            "estimated_thetas": estimated_thetas,
+            "true_thetas": true_thetas,
         }
 
     def save_model(self, path):
@@ -161,24 +169,35 @@ class DRLAgent:
         print(f"theta values loaded from {path}")
 
 def plot_evaluation_results(evaluation_info):
-    rewards = evaluation_info['rewards']
     estimation_errors = evaluation_info['estimation_errors']
+    estimated_thetas = evaluation_info['estimated_thetas']
+    true_thetas = evaluation_info['true_thetas']
 
-    fig, axs = plt.subplots(2, 1, figsize=(12, 10))
+    fig, ax1 = plt.subplots(figsize=(12, 6))
 
-    # Plotting rewards
-    axs[0].plot(rewards, color='blue', label='Rewards')
-    axs[0].set_title('Rewards Over Timesteps')
-    axs[0].set_xlabel('Timestep')
-    axs[0].set_ylabel('Reward')
-    axs[0].legend()
+    # Estimation errors
+    color = 'tab:red'
+    ax1.set_xlabel('Timestep')
+    ax1.set_ylabel('Estimation Error', color=color)
+    ax1.plot(estimation_errors, color=color, marker='o', label='Estimation Error')
+    ax1.tick_params(axis='y', labelcolor=color)
 
-    # Plotting estimation errors
-    axs[1].plot(estimation_errors, color='red', label='Estimation Errors')
-    axs[1].set_title('Estimation Errors Over Timesteps')
-    axs[1].set_xlabel('Timestep')
-    axs[1].set_ylabel('Absolute Error')
-    axs[1].legend()
+    # Instantiate a second axes that shares the same x-axis
+    ax2 = ax1.twinx()
+    color = 'tab:blue'
+    ax2.set_ylabel('Theta', color=color)  # we already handled the x-label with ax1
+    ax2.plot(estimated_thetas, color=color, linestyle='--', label='Estimated Theta')
+    ax2.plot(true_thetas, color='tab:green', linestyle='-.', label='True Theta')
+    ax2.tick_params(axis='y', labelcolor=color)
+
+    # Legend
+    lines, labels = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax2.legend(lines + lines2, labels + labels2, loc='upper right')
+
+    # Title and grid
+    plt.title('Estimation Errors and Theta Values Over Time')
+    plt.grid(True)
 
     plt.tight_layout()
     plt.show()
@@ -194,7 +213,7 @@ if __name__ == "__main__":
     train_model = True # Option to train or load already trained model
 
     if train_model:
-        agent.train(total_timesteps=1000000)
+        agent.train(total_timesteps=100000)
 
     # Load the model for evaluation
     agent.load_model(model_path)
