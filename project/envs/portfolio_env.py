@@ -46,7 +46,7 @@ class PortfolioEnv(gym.Env):
         self.solicited_this_step = {} # Avoids simulating behaviour multiple times
         self.K = 0.00003809523 # Opportunity cost of soliciting investor choice on daily basis
         self.portfolio_value = 55160 # Based on Statista 2024 average robo-advisor user portfolio value
-        self.solicitation_penalty = self.K * self.portfolio_value * 0.27 # Scaled to encourage exploration in unseen states 
+        self.solicitation_penalty = self.K * self.portfolio_value * 0.3 # Scaled to encourage exploration in unseen states 
         self.theta_values = []  # Store theta values for each step
 
         # Define observation space based on set of market conditions
