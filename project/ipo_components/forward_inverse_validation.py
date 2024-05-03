@@ -1,24 +1,22 @@
 import numpy as np
-import cvxpy as cp
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
+import matplotlib.pyplot as plt
+from project.utils.data_loader import load_and_filter_data
 from project.ipo_components.MVO_optimisation import MVO_optimisation
 from project.ipo_components.inverse_MVO_optimisation import inverse_MVO_optimisation
-from project.utils.data_loader import load_and_filter_data
 
-# Load portfolio constituents returns data
+# Load portfolio constituents annualised returns
 _, constituents_returns, _ = load_and_filter_data('project/data/ACWI.csv', 'project/data/AGGU.L.csv')
 n_time_steps = constituents_returns.shape[0]
 
-# Range of valid risk profiles for given returns
+# Define valid risk profiles to validate for
 risk_profiles = np.linspace(0.1, 3, 150) 
 
-# Lists to store results
+# Perform Forwad-Inverse Validation and record mean absolute error (MAE)
 errors = []
 results = []
 
-# Perform Forwad-Inverse Validation and record mean absolute error (MAE)
 for r_original in risk_profiles:
     optimal_portfolio = MVO_optimisation(constituents_returns, r_original)
     r_estimated = inverse_MVO_optimisation(constituents_returns, optimal_portfolio)
@@ -29,13 +27,12 @@ for r_original in risk_profiles:
     print(f"Original r: {r_original:.6f}, Estimated r: {r_estimated:.6f}, Error: {error:.6f}")
 
 mean_error = np.mean(errors)
-
 print(f"Mean Error across all tested r values: {mean_error:.6f}")
 
 # Create DataFrame for results
 df = pd.DataFrame(results, columns=['Original r', 'Estimated r', 'Absolute Error'])
 
-# Statistical Summary
+# Provide statistical summary
 error_description = df['Absolute Error'].describe()
 print(error_description)
 

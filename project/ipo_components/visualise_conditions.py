@@ -1,8 +1,7 @@
-import matplotlib.pyplot as plt
-import numpy as np
 import networkx as nx
+import matplotlib.pyplot as plt
 
-# Market condition data
+# Market conditions timesteps and risk profile ranges derived empirically
 conditions_data = {
     9: {"timesteps": 226, "range": (0.01, 0.17)},
     5: {"timesteps": 486, "range": (0.01, 0.17)},
@@ -21,7 +20,7 @@ conditions_data = {
     10: {"timesteps": 41, "range": (0.01, 0.91)}
 }
 
-# Neighbor clustering
+# Merging information derived after visualising first time
 merging_info = {
     0: 6, 2: 6, 3: 6, 4: 8, 5: 8, 7: 6, 9: 8, 11: 6, 12: 8, 1: 13
 }
@@ -31,19 +30,19 @@ G = nx.DiGraph()
 
 # Add nodes with sizes proportional to timesteps and colors based on range
 for cond, info in conditions_data.items():
-    color = plt.cm.viridis((info['range'][1] - 0.01) / 0.9)  # Normalize color
-    G.add_node(cond, size=info['timesteps'], color=color)  # Adjust size for visualization
+    color = plt.cm.viridis((info['range'][1] - 0.01) / 0.9)
+    G.add_node(cond, size=info['timesteps'], color=color)
 
-# Add edges based on merging
+# Add edges based on merging information
 for src, dest in merging_info.items():
     if src in conditions_data and dest in conditions_data:
         G.add_edge(src, dest)
 
 # Setup the figure and axis
 fig, ax = plt.subplots(figsize=(12, 8))
-pos = nx.kamada_kawai_layout(G)  # Use a different layout for better node distribution
+pos = nx.kamada_kawai_layout(G) 
 
-node_sizes = [G.nodes[node]['size']*13 for node in G]  # Adjust node size for visualization
+node_sizes = [G.nodes[node]['size']*10 for node in G]
 node_colors = [G.nodes[node]['color'] for node in G]
 
 nx.draw(G, pos, node_size=node_sizes, node_color=node_colors, with_labels=True, cmap=plt.cm.viridis, arrows=True, arrowstyle='-|>', arrowsize=10, ax=ax)

@@ -2,7 +2,6 @@ import cvxpy as cp
 import numpy as np
 
 def MVO_optimisation(constituents_returns, r):
-    # Initialization
     n_assets = constituents_returns.shape[1]
     n_time_steps = constituents_returns.values.shape[0]
 
