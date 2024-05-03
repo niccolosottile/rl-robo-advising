@@ -25,9 +25,6 @@ This repository contains the implementation of a novel Reinforcement Learning (R
 - Python 3.8+
 - Libraries: numpy, pandas, seaborn, matplotlib, networkx, cvxpy, torch, stable_baselines3, gymnasium
 
-To install necessary libraries, run:
-
-pip install -r requirements.txt
 ## Usage
 
 To run the main model (e.g., training the agent), execute from the root project folder:
